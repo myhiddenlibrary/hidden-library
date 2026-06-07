@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hidden Library — Bookish Aesthetic Tools</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Lato:wght@300;400&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background-color: #fdf6ee;
+      font-family: 'Lato', sans-serif;
+      font-weight: 300;
+      color: #4a3f35;
+      min-height: 100vh;
+    }
+
+    .hero {
+      text-align: center;
+      padding: 60px 20px 40px;
+    }
+    .hero-deco {
+      font-size: 22px;
+      letter-spacing: 14px;
+      color: #c9a882;
+      margin-bottom: 18px;
+      opacity: 0.65;
+    }
+    .hero h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: 44px;
+      font-weight: 400;
+      color: #3a2e25;
+      letter-spacing: 1px;
+      line-height: 1.2;
+    }
+    .hero h1 em {
+      font-style: italic;
+      color: #9c7a56;
+    }
+    .hero-sub {
+      margin-top: 14px;
+      font-size: 12px;
+      color: #8a7060;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      font-weight: 400;
+    }
+    .hero-line {
+      width: 50px;
+      height: 1px;
+      background: #c9a882;
+      margin: 22px auto 0;
+    }
+
+    .tools-section {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 44px 24px 60px;
+    }
+    .section-label {
+      text-align: center;
+      font-size: 10px;
+      letter-spacing: 3.5px;
+      text-transform: uppercase;
+      color: #b09070;
+      margin-bottom: 30px;
+    }
+
+    .tools-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 22px;
+    }
+
+    .tool-card {
+      background: #fffaf4;
+      border: 1px solid #e8d8c4;
+      border-radius: 18px;
+      padding: 30px 26px 26px;
+      text-decoration: none;
+      color: inherit;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    .tool-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: var(--accent);
+      border-radius: 18px 18px 0 0;
+    }
+    .tool-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 14px 36px rgba(100,70,40,0.11);
+      border-color: #d4b898;
+    }
+
+    .tool-icon { font-size: 32px; line-height: 1; }
+    .tool-name {
+      font-family: 'Playfair Display', serif;
+      font-size: 20px;
+      font-weight: 600;
+      color: #3a2e25;
+      line-height: 1.25;
+    }
+    .tool-desc {
+      font-size: 13px;
+      color: #7a6655;
+      line-height: 1.65;
+      flex: 1;
+    }
+    .tool-tag {
+      display: inline-block;
+      font-size: 10px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--tag-color);
+      background: var(--tag-bg);
+      border-radius: 20px;
+      padding: 3px 11px;
+      font-weight: 400;
+      align-self: flex-start;
+      margin-top: 2px;
+    }
+    .tool-cta {
+      font-size: 12px;
+      color: #b09070;
+      letter-spacing: 1px;
+      margin-top: 8px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .tool-cta::after { content: '→'; }
+
+    .card-rose  { --accent: #d4847a; --tag-bg: #fdecea; --tag-color: #b05548; }
+    .card-sage  { --accent: #8aab8a; --tag-bg: #eef4ee; --tag-color: #4a7a4a; }
+
+    .divider {
+      text-align: center;
+      padding: 0 0 50px;
+      color: #c9a882;
+      font-size: 16px;
+      letter-spacing: 10px;
+      opacity: 0.45;
+    }
+
+    footer {
+      text-align: center;
+      padding: 22px 20px 40px;
+      border-top: 1px solid #e8d8c4;
+    }
+    footer .brand {
+      font-family: 'Playfair Display', serif;
+      font-style: italic;
+      color: #9c7a56;
+      font-size: 15px;
+    }
+    footer p {
+      font-size: 11px;
+      color: #b09070;
+      letter-spacing: 1px;
+      margin-top: 6px;
+    }
+
+    @media (max-width: 500px) {
+      .hero h1 { font-size: 34px; }
+      .tools-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="hero">
+    <div class="hero-deco">✦ ✦ ✦</div>
+    <h1>Hidden <em>Library</em></h1>
+    <p class="hero-sub">Free Aesthetic Tools for Book Lovers</p>
+    <div class="hero-line"></div>
+  </div>
+
+  <div class="tools-section">
+    <p class="section-label">Choose your tool</p>
+
+    <div class="tools-grid">
+
+      <a class="tool-card card-rose" href="book-identity.html">
+        <div class="tool-icon">🪪</div>
+        <div class="tool-name">Book Identity Card</div>
+        <div class="tool-desc">Create a beautiful ID card for every book you finish — with cover photo, rating, dates, and a custom stamp.</div>
+        <span class="tool-tag">Finished reads</span>
+        <div class="tool-cta">Open tool</div>
+      </a>
+
+      <a class="tool-card card-sage" href="current-reading.html">
+        <div class="tool-icon">🌸</div>
+        <div class="tool-name">Current Reading Tracker</div>
+        <div class="tool-desc">Track your reading progress with a flower that blooms along a winding path — and bursts with confetti at 100%.</div>
+        <span class="tool-tag">Currently reading</span>
+        <div class="tool-cta">Open tool</div>
+      </a>
+
+    </div>
+  </div>
+
+  <div class="divider">· · ·</div>
+
+  <footer>
+    <p class="brand">Hidden Library</p>
+    <p>Free forever &nbsp;·&nbsp; Made with love for the bookish community</p>
+  </footer>
+
+</body>
+</html>
