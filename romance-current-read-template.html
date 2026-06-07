@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Current Reading Tracker — Hidden Library</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #1a1a2e; color: #eee; min-height: 100vh; }
+#app { display: flex; min-height: 100vh; }
+#panel { width: 250px; min-width: 220px; padding: 14px; border-right: 1px solid rgba(255,255,255,0.1); display: flex; flex-direction: column; gap: 10px; background: #16213e; overflow-y: auto; }
+#canvas-outer { flex: 1; display: flex; align-items: center; justify-content: center; padding: 20px; background: #0f3460; }
+#canvas-wrap { position: relative; width: 380px; height: 280px; border-radius: 24px; overflow: hidden; flex-shrink: 0; box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
+#bg-layer { position: absolute; inset: 0; background-size: cover; background-position: center; border-radius: 24px; }
+#main-svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+#confetti-container { position: absolute; inset: 0; pointer-events: none; overflow: hidden; border-radius: 24px; }
+label { font-size: 11px; color: #aaa; display: block; margin-bottom: 3px; }
+input[type=text], select {
+  width: 100%; font-size: 12px; padding: 5px 8px;
+  border-radius: 8px; border: 1px solid rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.08); color: #eee;
+}
+input[type=range] { width: 100%; accent-color: #a78bfa; }
+.row { display: flex; gap: 8px; align-items: center; }
+.pct-val { font-size: 12px; font-weight: 500; min-width: 36px; color: #eee; }
+button {
+  font-size: 11px; border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 8px; padding: 6px 8px;
+  background: rgba(255,255,255,0.08); color: #eee;
+  cursor: pointer; width: 100%; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+button:hover { background: rgba(255,255,255,0.15); }
+.sec { font-size: 10px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: 0.6px; margin-top: 4px; }
+.size-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+.sz { font-size: 10px; padding: 6px 4px; line-height: 1.3; text-align: center; white-space: normal; }
+.sz.active { background: rgba(167,139,250,0.3); color: #a78bfa; border-color: #a78bfa; }
+.dl-btn { background: rgba(99,102,241,0.3) !important; color: #818cf8 !important; border-color: #818cf8 !important; font-weight: 600; }
+.dl-gif-btn { background: rgba(52,211,153,0.15) !important; color: #34d399 !important; border-color: #34d399 !important; font-weight: 600; }
+.hint { font-size: 10px; color: #666; text-align: center; line-height: 1.4; margin-top: -2px; }
+
+@media (max-width: 640px) {
+  #app { flex-direction: column; }
+  #panel { width: 100%; border-right: none; border-bottom: 1px solid rgba(255,255,255,0.1); }
+  #canvas-outer { padding: 16px; }
+  #canvas-wrap { width: 100%; max-width: 380px; height: auto; aspect-ratio: 380/280; }
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="panel">
+    <div style="font-size:14px;font-weight:700;color:#a78bfa;margin-bottom:4px;">📚 Current Reading</div>
+    <div class="sec">Book Info</div>
+    <div><label>Title</label><input type="text" id="inp-title" value="The Love Hypothesis"></div>
+    <div><label>Author</label><input type="text" id="inp-author" value="Ali Hazelwood"></div>
+    <div><label>Genre</label>
+      <select id="inp-genre">
+        <option value="contemporary" selected>Contemporary Romance</option>
+        <option value="romcom">Romantic Comedy</option>
+        <option value="dark">Dark Romance</option>
+        <option value="historical">Historical Romance</option>
+        <option value="fantasy">Fantasy Romance</option>
+        <option value="suspense">Romantic Suspense</option>
+      </select>
+    </div>
+    <div><label>Reading Time</label><input type="text" id="inp-time" value="2.5 hrs"></div>
+    <div><label>Progress</label>
+      <div class="row">
+        <input type="range" id="inp-pct" min="0" max="100" value="68" style="flex:1">
+        <span class="pct-val" id="pct-label">68%</span>
+      </div>
+    </div>
+    <div class="sec">Background</div>
+    <button onclick="document.getElementById('file-in').click()">Upload image</button>
+    <input type="file" id="file-in" accept="image/*" style="display:none">
+    <button onclick="clearBg()">Reset to default</button>
+    <div class="sec">Download</div>
+    <div class="size-btns">
+      <button class="sz active" onclick="setSize('landscape',this)">1080 × 566</button>
+      <button class="sz" onclick="setSize('ig-post',this)">1080 × 1080</button>
+      <button class="sz" onclick="setSize('ig-story',this)">1080 × 1920</button>
+      <button class="sz" onclick="setSize('pinterest',this)">1000 × 1500</button>
+    </div>
+    <button class="dl-btn" onclick="downloadImg()">Download PNG ↓</button>
+    <button class="dl-gif-btn" id="gif-btn" onclick="downloadGif()">Download GIF 🎉</button>
+    <div class="hint">Slide to 100% and confetti will appear!<br>GIF captures the celebration animation.</div>
+  </div>
+
+  <div id="canvas-outer">
+    <div id="canvas-wrap">
+      <div id="bg-layer"></div>
+      <div id="confetti-container"></div>
+      <svg id="main-svg" viewBox="0 0 380 280" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <filter id="soft-glow" x="-40%" y="-40%" width="180%" height="180%">
+            <feGaussianBlur stdDeviation="2.5" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+          <clipPath id="title-clip">
+            <rect x="10" y="8" width="165" height="120"/>
+          </clipPath>
+        </defs>
+
+        <path id="road-border" d="" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        <path id="road-body"   d="" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        <path id="road-dash"   d="" fill="none" stroke="rgba(255,255,255,0.38)" stroke-width="2" stroke-dasharray="10 8" stroke-linecap="round"/>
+
+        <circle cx="28" cy="245" r="6" fill="rgba(255,255,255,0.18)" stroke="rgba(255,255,255,0.5)" stroke-width="1"/>
+        <text x="38" y="249" font-size="9" fill="rgba(255,255,255,0.65)" font-family="Georgia,serif" font-style="italic">Start</text>
+        <circle cx="342" cy="30" r="6" fill="rgba(255,255,255,0.18)" stroke="rgba(255,255,255,0.5)" stroke-width="1"/>
+        <text x="352" y="34" font-size="9" fill="rgba(255,255,255,0.65)" font-family="Georgia,serif" font-style="italic">Fin</text>
+
+        <g clip-path="url(#title-clip)">
+          <g id="title-group"></g>
+          <text id="svg-author" x="16" y="999" font-family="Georgia,'Times New Roman',serif" font-size="11" font-style="italic" fill="rgba(255,255,255,0.80)">Ali Hazelwood</text>
+          <text id="svg-genre-label" x="16" y="999" font-family="Georgia,serif" font-size="9" fill="rgba(255,255,255,0.48)" font-style="italic">Contemporary Romance</text>
+        </g>
+
+        <text id="svg-time" x="295" y="195" font-family="Georgia,serif" font-size="18" font-weight="600" fill="rgba(255,255,255,0.85)" text-anchor="middle" filter="url(#soft-glow)">2.5 hrs</text>
+        <text id="svg-pct"  x="295" y="250" font-family="Georgia,serif" font-size="42" font-weight="700" fill="white" text-anchor="middle" opacity="0.96" filter="url(#soft-glow)">68%</text>
+
+        <g id="flower-anchor"><g id="flower-sway"><g id="flower-group"></g></g></g>
+      </svg>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js"></script>
+<script>
+const PATH_D = "M 28 245 C 30 200, 50 175, 90 148 C 130 120, 170 115, 200 95 C 230 75, 270 55, 342 30";
+const GENRES = {
+  contemporary:{ roadTop:'#C85060', bg:'#6a2a35', genreLabel:'Contemporary Romance', flower:drawRose },
+  romcom:      { roadTop:'#E888B8', bg:'#5a2848', genreLabel:'Romantic Comedy',      flower:drawSakura },
+  dark:        { roadTop:'#4a4a5a', bg:'#141420', genreLabel:'Dark Romance',          flower:drawBlackRose },
+  historical:  { roadTop:'#8B7AAA', bg:'#2e2244', genreLabel:'Historical Romance',   flower:drawViolet },
+  fantasy:     { roadTop:'#6A90CF', bg:'#1a2a48', genreLabel:'Fantasy Romance',      flower:drawLily },
+  suspense:    { roadTop:'#4A8A6A', bg:'#142a1e', genreLabel:'Romantic Suspense',    flower:drawOleander }
+};
+let pct=68, currentSize='landscape', bgImage=null, celebrating=false, swayAnim=null;
+
+function getSVGPath(){ const p=document.createElementNS('http://www.w3.org/2000/svg','path'); p.setAttribute('d',PATH_D); return p; }
+function ptAt(t){ const p=getSVGPath(); return p.getPointAtLength(p.getTotalLength()*Math.min(Math.max(t,0),1)); }
+
+function drawRose(g){g.innerHTML=`<g transform="translate(0,2)"><path d="M0,10 Q-3,16 -2,22" fill="none" stroke="#3a6a20" stroke-width="1.5" stroke-linecap="round"/><ellipse cx="5" cy="18" rx="4" ry="2" fill="#4a7a28" transform="rotate(30,5,18)" opacity="0.9"/><ellipse cx="0" cy="-8" rx="4.5" ry="7" fill="#B02838" opacity="0.9"/><ellipse cx="0" cy="-8" rx="4.5" ry="7" fill="#C03848" opacity="0.9" transform="rotate(51.4)"/><ellipse cx="0" cy="-8" rx="4.5" ry="7" fill="#B02838" opacity="0.9" transform="rotate(102.8)"/><ellipse cx="0" cy="-8" rx="4.5" ry="7" fill="#C03848" opacity="0.9" transform="rotate(154.2)"/><ellipse cx="0" cy="-8" rx="4.5" ry="7" fill="#B02838" opacity="0.9" transform="rotate(205.6)"/><ellipse cx="0" cy="-8" rx="4.5" ry="7" fill="#C03848" opacity="0.9" transform="rotate(257)"/><ellipse cx="0" cy="-5" rx="3" ry="5" fill="#D84060" transform="rotate(25.7)"/><ellipse cx="0" cy="-5" rx="3" ry="5" fill="#E05070" transform="rotate(128.5)"/><ellipse cx="0" cy="-5" rx="3" ry="5" fill="#D84060" transform="rotate(231.3)"/><circle cx="0" cy="0" r="4" fill="#F07090"/><circle cx="0" cy="0" r="2.2" fill="#F8A0B0"/><circle cx="-1" cy="-0.5" r="0.6" fill="#FFE060"/><circle cx="1" cy="-0.5" r="0.6" fill="#FFE060"/></g>`;}
+function drawSakura(g){g.innerHTML=`<g><path d="M0,12 Q-2,18 -1,24" fill="none" stroke="#5a3020" stroke-width="1.2" stroke-linecap="round"/>${[0,72,144,216,288].map(a=>`<g transform="rotate(${a})"><ellipse cx="-2.5" cy="-8" rx="3.2" ry="6" fill="#F8C8DC"/><ellipse cx="2.5" cy="-8" rx="3.2" ry="6" fill="#F0B0CC"/></g>`).join('')}<circle cx="0" cy="0" r="3.5" fill="#FFF0F5"/><circle cx="0" cy="0" r="2" fill="#FFD8E8"/>${[-1.5,-0.5,0.5,1.5].map(i=>`<line x1="${i*0.7}" y1="-0.8" x2="${i}" y2="-5" stroke="#E888AA" stroke-width="0.6" stroke-linecap="round"/><circle cx="${i}" cy="-5.5" r="0.8" fill="#FFB0C8"/>`).join('')}</g>`;}
+function drawBlackRose(g){g.innerHTML=`<g transform="translate(0,2)"><path d="M0,10 Q-3,16 -2,22" fill="none" stroke="#1a2a10" stroke-width="1.5" stroke-linecap="round"/><ellipse cx="5" cy="18" rx="4" ry="2" fill="#1e3018" transform="rotate(30,5,18)" opacity="0.9"/><ellipse cx="0" cy="-8" rx="4.5" ry="7" fill="#111118" opacity="0.95"/><ellipse cx="0" cy="-8" rx="4.5" ry="7" fill="#1a1a26" opacity="0.95" transform="rotate(51.4)"/><ellipse cx="0" cy="-8" rx="4.5" ry="7" fill="#111118" opacity="0.95" transform="rotate(102.8)"/><ellipse cx="0" cy="-8" rx="4.5" ry="7" fill="#1a1a26" opacity="0.95" transform="rotate(154.2)"/><ellipse cx="0" cy="-8" rx="4.5" ry="7" fill="#111118" opacity="0.95" transform="rotate(205.6)"/><ellipse cx="0" cy="-5" rx="3" ry="5" fill="#252530" transform="rotate(25.7)"/><ellipse cx="0" cy="-5" rx="3" ry="5" fill="#2e2e3e" transform="rotate(128.5)"/><circle cx="0" cy="0" r="4" fill="#2a2a3a"/><circle cx="0" cy="0" r="2.2" fill="#363648"/><circle cx="-1" cy="-0.5" r="0.6" fill="#8060C0" opacity="0.7"/><circle cx="1" cy="-0.5" r="0.6" fill="#8060C0" opacity="0.7"/></g>`;}
+function drawViolet(g){g.innerHTML=`<g><path d="M0,14 Q-2,20 -1,26" fill="none" stroke="#3a5a20" stroke-width="1.2" stroke-linecap="round"/><ellipse cx="-4" cy="20" rx="4.5" ry="2.2" fill="#4a6a28" transform="rotate(-25,-4,20)" opacity="0.85"/>${[0,72,144,216,288].map((a,i)=>`<ellipse cx="0" cy="-9" rx="5" ry="7.5" fill="${['#9B78C0','#8868A8','#A888D0','#8868A8','#9B78C0'][i]}" transform="rotate(${a})"/>`).join('')}<circle cx="0" cy="0" r="4.5" fill="#FFD700"/><circle cx="0" cy="0" r="2.8" fill="#FFA500"/><circle cx="0" cy="0" r="1.5" fill="#FF8C00"/></g>`;}
+function drawLily(g){g.innerHTML=`<g><path d="M0,16 Q-1.5,22 -1,28" fill="none" stroke="#3a6020" stroke-width="1.5" stroke-linecap="round"/>${[0,60,120,180,240,300].map((a,i)=>`<ellipse cx="0" cy="-10" rx="3.5" ry="9" fill="${i%2===0?'#7AAAE0':'#5888C8'}" transform="rotate(${a})" opacity="0.92"/>`).join('')}<circle cx="0" cy="0" r="5" fill="#FFD700"/><circle cx="0" cy="0" r="3" fill="#FFC200"/><circle cx="0" cy="0" r="1.8" fill="#FF9500"/>${[0,60,120,180,240,300].map(a=>`<line x1="0" y1="0" x2="${Math.sin(a*Math.PI/180)*6}" y2="${-Math.cos(a*Math.PI/180)*6}" stroke="#FFA500" stroke-width="0.8" stroke-linecap="round"/><circle cx="${Math.sin(a*Math.PI/180)*6.5}" cy="${-Math.cos(a*Math.PI/180)*6.5}" r="1.2" fill="#FFD040"/>`).join('')}</g>`;}
+function drawOleander(g){g.innerHTML=`<g><path d="M0,12 Q-2,18 -1,24" fill="none" stroke="#2a5030" stroke-width="1.2" stroke-linecap="round"/><ellipse cx="4" cy="19" rx="4.5" ry="2" fill="#2a5030" transform="rotate(20,4,19)" opacity="0.85"/>${[0,72,144,216,288].map((a,i)=>`<ellipse cx="0" cy="-9" rx="3.5" ry="8" fill="${i%2===0?'#E05080':'#C83868'}" transform="rotate(${a})" opacity="0.9"/>`).join('')}<circle cx="0" cy="0" r="5" fill="#FFF080"/><circle cx="0" cy="0" r="3" fill="#FFE040"/><circle cx="0" cy="0" r="1.8" fill="#FF8000"/>${[0,72,144,216,288].map(a=>`<circle cx="${Math.sin(a*Math.PI/180)*7}" cy="${-Math.cos(a*Math.PI/180)*7}" r="1" fill="rgba(180,0,60,0.5)"/>`).join('')}</g>`;}
+
+function applyGenreTheme(){
+  const G=GENRES[document.getElementById('inp-genre').value];
+  if(!bgImage) document.getElementById('canvas-wrap').style.background=G.bg;
+  document.getElementById('road-border').setAttribute('stroke','rgba(0,0,0,0.28)');
+  document.getElementById('road-border').setAttribute('stroke-width','28');
+  document.getElementById('road-border').setAttribute('d',PATH_D);
+  document.getElementById('road-body').setAttribute('stroke',G.roadTop);
+  document.getElementById('road-body').setAttribute('stroke-width','22');
+  document.getElementById('road-body').setAttribute('d',PATH_D);
+  document.getElementById('road-dash').setAttribute('d',PATH_D);
+  document.getElementById('svg-genre-label').textContent=G.genreLabel;
+}
+
+function renderTitle(text){
+  const g=document.getElementById('title-group'); g.innerHTML='';
+  const MAX_W=158,MAX_FONT=20,MIN_FONT=12,LH=1.28,START_Y=28,ns='http://www.w3.org/2000/svg';
+  let chosenFont=MIN_FONT,chosenLines=[text];
+  for(let fs=MAX_FONT;fs>=MIN_FONT;fs--){
+    const cpl=Math.floor(MAX_W/(fs*0.56));
+    const lines=wrapText(text,cpl);
+    if(lines.length*fs*LH<=54){chosenFont=fs;chosenLines=lines;break;}
+  }
+  const el=document.createElementNS(ns,'text');
+  el.setAttribute('font-family',"Georgia,'Times New Roman',serif");
+  el.setAttribute('font-size',chosenFont); el.setAttribute('font-weight','700');
+  el.setAttribute('fill','white'); el.setAttribute('opacity','0.96');
+  el.setAttribute('filter','url(#soft-glow)');
+  chosenLines.forEach((line,i)=>{
+    const ts=document.createElementNS(ns,'tspan');
+    ts.setAttribute('x','16'); ts.setAttribute('y',START_Y+i*chosenFont*LH);
+    ts.textContent=line; el.appendChild(ts);
+  });
+  g.appendChild(el);
+  return START_Y+(chosenLines.length-1)*chosenFont*LH+chosenFont*0.3;
+}
+
+function wrapText(text,cpl){
+  const words=text.split(' '),lines=[];let cur='';
+  for(const w of words){const t=cur?cur+' '+w:w;if(t.length>cpl&&cur){lines.push(cur);cur=w;}else cur=t;}
+  if(cur)lines.push(cur);return lines;
+}
+
+function updateTexts(){
+  const titleText=document.getElementById('inp-title').value||'Title';
+  const authorText=document.getElementById('inp-author').value||'Author';
+  const genre=document.getElementById('inp-genre').value;
+  const timeText=document.getElementById('inp-time').value||'';
+  const bottomY=renderTitle(titleText);
+  const authorEl=document.getElementById('svg-author');
+  authorEl.setAttribute('y',bottomY+18); authorEl.textContent=authorText;
+  const genreEl=document.getElementById('svg-genre-label');
+  genreEl.setAttribute('y',bottomY+34); genreEl.textContent=GENRES[genre].genreLabel;
+  document.getElementById('svg-time').textContent=timeText;
+  document.getElementById('svg-pct').textContent=pct+'%';
+}
+
+function startSway(){
+  if(swayAnim)cancelAnimationFrame(swayAnim);
+  let t0=null;
+  function frame(ts){if(!t0)t0=ts;document.getElementById('flower-sway').setAttribute('transform',`rotate(${Math.sin((ts-t0)/1000*1.4)*9})`);swayAnim=requestAnimationFrame(frame);}
+  swayAnim=requestAnimationFrame(frame);
+}
+
+function placeFlower(scale=1){
+  const pt=ptAt(pct/100);
+  document.getElementById('flower-anchor').setAttribute('transform',`translate(${pt.x},${pt.y})`);
+  document.getElementById('flower-sway').setAttribute('transform',`scale(${scale})`);
+  const g=document.getElementById('flower-group');g.innerHTML='';
+  GENRES[document.getElementById('inp-genre').value].flower(g);
+}
+
+function celebrate(){
+  if(celebrating)return;celebrating=true;
+  const cc=document.getElementById('confetti-container');cc.innerHTML='';
+  const colors=['#FF6B6B','#FFD93D','#6BCB77','#4D96FF','#FF6BD6','#fff','#FFB347','#C3F73A'];
+  for(let i=0;i<80;i++){
+    const el=document.createElement('div'),s=Math.random()*7+3;
+    el.style.cssText=`position:absolute;width:${s}px;height:${s}px;background:${colors[i%colors.length]};border-radius:${Math.random()>.4?'50%':'2px'};left:${Math.random()*100}%;top:-12px;opacity:1`;
+    cc.appendChild(el);
+    el.animate([{transform:'translateY(0) translateX(0) rotate(0deg)',opacity:1},{transform:`translateY(${Math.random()*260+40}px) translateX(${(Math.random()-.5)*180}px) rotate(${Math.random()*720}deg)`,opacity:0}],{duration:Math.random()*2000+1400,easing:'cubic-bezier(0.25,0.46,0.45,0.94)',fill:'forwards',delay:Math.random()*600});
+  }
+  let fr=0,growing=true,sc=1;
+  function pulse(){fr++;if(fr>50){placeFlower(1);celebrating=false;return;}sc=growing?sc+0.06:sc-0.04;if(sc>1.9)growing=false;const pt=ptAt(1);document.getElementById('flower-anchor').setAttribute('transform',`translate(${pt.x},${pt.y})`);document.getElementById('flower-sway').setAttribute('transform',`scale(${sc})`);requestAnimationFrame(pulse);}
+  requestAnimationFrame(pulse);
+  setTimeout(()=>cc.innerHTML='',4000);
+}
+
+document.getElementById('inp-pct').addEventListener('input',e=>{pct=parseInt(e.target.value);document.getElementById('pct-label').textContent=pct+'%';celebrating=false;render();if(pct>=100)setTimeout(celebrate,300);});
+['inp-title','inp-author','inp-time'].forEach(id=>document.getElementById(id).addEventListener('input',updateTexts));
+document.getElementById('inp-genre').addEventListener('change',()=>{celebrating=false;render();});
+document.getElementById('file-in').addEventListener('change',e=>{const file=e.target.files[0];if(!file)return;const r=new FileReader();r.onload=ev=>{bgImage=ev.target.result;document.getElementById('bg-layer').style.backgroundImage=`url(${bgImage})`;document.getElementById('canvas-wrap').style.background='transparent';};r.readAsDataURL(file);});
+function clearBg(){bgImage=null;document.getElementById('bg-layer').style.backgroundImage='';applyGenreTheme();}
+function setSize(k,btn){currentSize=k;document.querySelectorAll('.sz').forEach(b=>b.classList.remove('active'));btn.classList.add('active');}
+
+const SIZES={'landscape':{w:1080,h:566},'ig-post':{w:1080,h:1080},'ig-story':{w:1080,h:1920},'pinterest':{w:1000,h:1500}};
+
+function roundRect(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.arcTo(x+w,y,x+w,y+r,r);ctx.lineTo(x+w,y+h-r);ctx.arcTo(x+w,y+h,x+w-r,y+h,r);ctx.lineTo(x+r,y+h);ctx.arcTo(x,y+h,x,y+h-r,r);ctx.lineTo(x,y+r);ctx.arcTo(x,y,x+r,y,r);ctx.closePath();}
+
+function downloadImg(){
+  const sz=SIZES[currentSize],genre=GENRES[document.getElementById('inp-genre').value];
+  const canvas=document.createElement('canvas');canvas.width=sz.w;canvas.height=sz.h;
+  const ctx=canvas.getContext('2d');
+  ctx.save();roundRect(ctx,0,0,sz.w,sz.h,sz.w*0.04);ctx.clip();
+  const clone=document.getElementById('main-svg').cloneNode(true);
+  clone.setAttribute('width',sz.w);clone.setAttribute('height',sz.h);clone.setAttribute('viewBox','0 0 380 280');
+  const url=URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(clone)],{type:'image/svg+xml'}));
+  const img=new Image();
+  img.onload=()=>{if(!bgImage){ctx.fillStyle=genre.bg;ctx.fillRect(0,0,sz.w,sz.h);}ctx.drawImage(img,0,0,sz.w,sz.h);ctx.restore();URL.revokeObjectURL(url);const a=document.createElement('a');a.download='current-reading.png';a.href=canvas.toDataURL('image/png');a.click();};
+  img.src=url;
+}
+
+function downloadGif(){
+  const btn=document.getElementById('gif-btn');
+  btn.textContent='Generating GIF... ⏳';btn.disabled=true;
+  const W=380,H=280,genre=GENRES[document.getElementById('inp-genre').value];
+  const gif=new GIF({workers:2,quality:8,width:W,height:H,workerScript:'https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js'});
+  const colors=['#FF6B6B','#FFD93D','#6BCB77','#4D96FF','#FF6BD6','#fff','#FFB347','#C3F73A'];
+  const particles=Array.from({length:40},()=>({x:Math.random()*W,y:-10,vx:(Math.random()-.5)*4,vy:Math.random()*4+2,size:Math.random()*7+3,color:colors[Math.floor(Math.random()*colors.length)],circle:Math.random()>.4}));
+  const svgEl=document.getElementById('main-svg');const FRAMES=20;
+  const frameScales=[1,1.15,1.35,1.55,1.7,1.85,1.9,1.8,1.65,1.5,1.35,1.2,1.1,1.05,1,1,1,1,1,1];
+  function captureFrame(fi,scale,cb){
+    const canvas=document.createElement('canvas');canvas.width=W;canvas.height=H;
+    const ctx=canvas.getContext('2d');
+    ctx.fillStyle=bgImage?'#000':genre.bg;ctx.fillRect(0,0,W,H);
+    const clone=svgEl.cloneNode(true);
+    clone.setAttribute('width',W);clone.setAttribute('height',H);clone.setAttribute('viewBox','0 0 380 280');
+    const anchor=clone.querySelector('#flower-anchor'),sway=clone.querySelector('#flower-sway');
+    if(anchor&&sway){const pt=ptAt(1);anchor.setAttribute('transform',`translate(${pt.x},${pt.y})`);sway.setAttribute('transform',`scale(${scale})`);}
+    const url=URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(clone)],{type:'image/svg+xml'}));
+    const img=new Image();
+    img.onload=()=>{ctx.drawImage(img,0,0,W,H);URL.revokeObjectURL(url);const prog=fi/FRAMES;particles.forEach(p=>{const py=p.y+p.vy*fi*3,px=p.x+p.vx*fi;ctx.globalAlpha=Math.max(0,1-prog*1.2);ctx.fillStyle=p.color;if(p.circle){ctx.beginPath();ctx.arc(px,py,p.size/2,0,Math.PI*2);ctx.fill();}else ctx.fillRect(px,py,p.size,p.size);});ctx.globalAlpha=1;cb(canvas);};
+    img.onerror=()=>cb(canvas);img.src=url;
+  }
+  function addNextFrame(i){if(i>=FRAMES){gif.render();return;}captureFrame(i,frameScales[i]||1,canvas=>{gif.addFrame(canvas,{delay:80,copy:true});addNextFrame(i+1);});}
+  addNextFrame(0);
+  gif.on('finished',blob=>{const a=document.createElement('a');a.download='current-reading-celebration.gif';a.href=URL.createObjectURL(blob);a.click();btn.textContent='Download GIF 🎉';btn.disabled=false;});
+}
+
+function render(){applyGenreTheme();updateTexts();placeFlower();}
+render();startSway();
+</script>
+</body>
+</html>
