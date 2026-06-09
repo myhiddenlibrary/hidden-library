@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Current Reading Tracker — Fantasy</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0a0810; color: #eee; min-height: 100vh; }
+#app { display: flex; min-height: 100vh; }
+#panel { width: 250px; min-width: 220px; padding: 14px; border-right: 1px solid rgba(255,255,255,0.08); display: flex; flex-direction: column; gap: 10px; background: #0e0b18; overflow-y: auto; }
+#canvas-outer { flex: 1; display: flex; align-items: center; justify-content: center; padding: 20px; background: #080610; }
+#canvas-wrap { position: relative; width: 380px; height: 280px; border-radius: 24px; overflow: hidden; flex-shrink: 0; box-shadow: 0 8px 48px rgba(80,40,180,0.35); transition: all 0.4s ease; }
+#bg-layer { position: absolute; inset: 0; background-size: cover; background-position: center; border-radius: 24px; }
+#main-svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+#confetti-container { position: absolute; inset: 0; pointer-events: none; overflow: hidden; border-radius: 24px; }
+body.preview-mode #panel { display: none; }
+body.preview-mode #canvas-outer { background: #000; padding: 0; }
+body.preview-mode #canvas-wrap { width: 100vw; height: 100vh; border-radius: 0; box-shadow: none; }
+body.preview-mode #preview-btn { position: fixed; bottom: 20px; right: 20px; z-index: 999; opacity: 0.2; font-size: 10px; padding: 6px 14px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 20px; color: white; cursor: pointer; width: auto; }
+body.preview-mode #preview-btn:hover { opacity: 0.8; }
+label { font-size: 11px; color: #998; display: block; margin-bottom: 3px; }
+input[type=text], select { width: 100%; font-size: 12px; padding: 5px 8px; border-radius: 8px; border: 1px solid rgba(200,180,255,0.15); background: rgba(180,140,255,0.07); color: #eee; }
+input[type=range] { width: 100%; accent-color: #c080ff; }
+.row { display: flex; gap: 8px; align-items: center; }
+.pct-val { font-size: 12px; font-weight: 500; min-width: 36px; color: #eee; }
+button { font-size: 11px; border: 1px solid rgba(200,180,255,0.12); border-radius: 8px; padding: 6px 8px; background: rgba(180,140,255,0.07); color: #eee; cursor: pointer; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+button:hover { background: rgba(180,140,255,0.15); }
+.sec { font-size: 10px; font-weight: 600; color: #776; text-transform: uppercase; letter-spacing: 0.6px; margin-top: 4px; }
+.size-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+.sz { font-size: 10px; padding: 6px 4px; line-height: 1.3; text-align: center; white-space: normal; }
+.sz.active { background: rgba(192,128,255,0.25); color: #c080ff; border-color: #c080ff; }
+.dl-btn { background: rgba(192,128,255,0.2) !important; color: #c080ff !important; border-color: #c080ff !important; font-weight: 600; }
+.hint { font-size: 10px; color: #776; text-align: center; line-height: 1.5; margin-top: 2px; }
+#preview-btn { font-size: 10px; color: #554; background: none; border: none; cursor: pointer; width: auto; text-align: center; padding: 2px; letter-spacing: 0.5px; margin-top: 2px; }
+#preview-btn:hover { color: #998; background: none; }
+@media (max-width: 640px) {
+  #app { flex-direction: column; }
+  #panel { width: 100%; border-right: none; border-bottom: 1px solid rgba(255,255,255,0.08); }
+  #canvas-outer { padding: 16px; }
+  #canvas-wrap { width: 100%; max-width: 380px; height: auto; aspect-ratio: 380/280; }
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="panel">
+    <div style="font-size:14px;font-weight:700;color:#c080ff;margin-bottom:4px;">✨ Current Reading</div>
+    <div class="sec">Book Info</div>
+    <div><label>Title</label><input type="text" id="inp-title" value="The Name of the Wind"></div>
+    <div><label>Author</label><input type="text" id="inp-author" value="Patrick Rothfuss"></div>
+    <div><label>Subgenre</label>
+      <select id="inp-genre">
+        <option value="high" selected>High Fantasy</option>
+        <option value="low">Low Fantasy</option>
+        <option value="urban">Urban Fantasy</option>
+        <option value="dark">Dark Fantasy</option>
+        <option value="grimdark">Grimdark Fantasy</option>
+        <option value="swordsorc">Sword &amp; Sorcery</option>
+        <option value="fairytale">Fairy Tale</option>
+        <option value="magicreal">Magical Realism</option>
+      </select>
+    </div>
+    <div><label>Reading Time</label><input type="text" id="inp-time" value="4 hrs"></div>
+    <div><label>Progress</label>
+      <div class="row">
+        <input type="range" id="inp-pct" min="0" max="100" value="54" style="flex:1">
+        <span class="pct-val" id="pct-label">54%</span>
+      </div>
+    </div>
+    <div class="sec">Background</div>
+    <button onclick="document.getElementById('file-in').click()">Upload image</button>
+    <input type="file" id="file-in" accept="image/*" style="display:none">
+    <button onclick="clearBg()">Reset to default</button>
+    <div class="sec">Download</div>
+    <div class="size-btns">
+      <button class="sz active" onclick="setSize('landscape',this)">1080 x 566</button>
+      <button class="sz" onclick="setSize('ig-post',this)">1080 x 1080</button>
+      <button class="sz" onclick="setSize('ig-story',this)">1080 x 1920</button>
+      <button class="sz" onclick="setSize('pinterest',this)">1000 x 1500</button>
+    </div>
+    <button class="dl-btn" onclick="downloadImg()">Download PNG</button>
+    <div class="hint">Slide to 100% to finish the quest! ✨</div>
+    <button id="preview-btn" onclick="togglePreview()">⛶ preview</button>
+  </div>
+
+  <div id="canvas-outer">
+    <div id="canvas-wrap">
+      <div id="bg-layer"></div>
+      <div id="confetti-container"></div>
+      <svg id="main-svg" viewBox="0 0 380 280" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <filter id="soft-glow" x="-40%" y="-40%" width="180%" height="180%">
+            <feGaussianBlur stdDeviation="2.5" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+          <filter id="magic-glow" x="-80%" y="-80%" width="260%" height="260%">
+            <feGaussianBlur stdDeviation="5" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+          <filter id="star-glow" x="-100%" y="-100%" width="300%" height="300%">
+            <feGaussianBlur stdDeviation="3" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+          <clipPath id="title-clip"><rect x="10" y="8" width="165" height="120"/></clipPath>
+        </defs>
+
+        <!-- Fantasy map background: aged parchment grid with terrain marks -->
+        <g id="map-grid" opacity="0.12">
+          <!-- Hex-ish grid feel: offset horizontals -->
+          <line x1="0" y1="46" x2="380" y2="46" stroke="#c8a860" stroke-width="0.5"/>
+          <line x1="0" y1="92" x2="380" y2="92" stroke="#c8a860" stroke-width="0.5"/>
+          <line x1="0" y1="138" x2="380" y2="138" stroke="#c8a860" stroke-width="0.5"/>
+          <line x1="0" y1="184" x2="380" y2="184" stroke="#c8a860" stroke-width="0.5"/>
+          <line x1="0" y1="230" x2="380" y2="230" stroke="#c8a860" stroke-width="0.5"/>
+          <line x1="50" y1="0" x2="50" y2="280" stroke="#c8a860" stroke-width="0.5"/>
+          <line x1="110" y1="0" x2="110" y2="280" stroke="#c8a860" stroke-width="0.5"/>
+          <line x1="170" y1="0" x2="170" y2="280" stroke="#c8a860" stroke-width="0.5"/>
+          <line x1="230" y1="0" x2="230" y2="280" stroke="#c8a860" stroke-width="0.5"/>
+          <line x1="290" y1="0" x2="290" y2="280" stroke="#c8a860" stroke-width="0.5"/>
+          <line x1="348" y1="0" x2="348" y2="280" stroke="#c8a860" stroke-width="0.5"/>
+          <!-- Diagonal map hatching (elevation marks) -->
+          <line x1="0" y1="0" x2="380" y2="280" stroke="#c8a860" stroke-width="0.3" opacity="0.6"/>
+          <line x1="0" y1="140" x2="240" y2="0" stroke="#c8a860" stroke-width="0.3" opacity="0.6"/>
+          <line x1="140" y1="280" x2="380" y2="140" stroke="#c8a860" stroke-width="0.3" opacity="0.6"/>
+        </g>
+
+        <!-- Fantasy map terrain features (mountains, forests) -->
+        <g id="terrain-marks" opacity="0.09">
+          <!-- Mountain marks -->
+          <polygon points="60,90 67,72 74,90" fill="#c8a860"/>
+          <polygon points="68,90 76,68 84,90" fill="#c8a860"/>
+          <polygon points="220,160 228,142 236,160" fill="#c8a860"/>
+          <polygon points="228,160 236,138 244,160" fill="#c8a860"/>
+          <polygon points="310,60 317,44 324,60" fill="#c8a860"/>
+          <!-- Forest marks (simple tree bumps) -->
+          <circle cx="130" cy="200" r="6" fill="#c8a860"/>
+          <circle cx="142" cy="203" r="5" fill="#c8a860"/>
+          <circle cx="154" cy="200" r="6" fill="#c8a860"/>
+          <circle cx="290" cy="210" r="5" fill="#c8a860"/>
+          <circle cx="302" cy="207" r="6" fill="#c8a860"/>
+          <!-- Small castle symbol -->
+          <rect x="336" y="220" width="18" height="12" fill="#c8a860"/>
+          <rect x="334" y="216" width="4" height="6" fill="#c8a860"/>
+          <rect x="341" y="216" width="4" height="6" fill="#c8a860"/>
+          <rect x="348" y="216" width="4" height="6" fill="#c8a860"/>
+        </g>
+
+        <!-- Quest path (road/route) — sweeping fantasy journey curve -->
+        <path id="road-border" d="" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        <path id="road-body"   d="" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        <path id="road-dash"   d="" fill="none" stroke-linecap="round"/>
+
+        <!-- Start marker: ancient rune stone -->
+        <g transform="translate(28,245)">
+          <circle cx="0" cy="0" r="7" fill="rgba(180,140,80,0.2)" stroke="rgba(200,168,80,0.7)" stroke-width="1.2"/>
+          <text x="0" y="3.5" font-size="8" fill="rgba(220,190,100,0.9)" text-anchor="middle" font-family="serif">ᚱ</text>
+          <text x="12" y="4" font-size="7.5" fill="rgba(255,255,255,0.45)" font-family="serif" font-style="italic">origin</text>
+        </g>
+
+        <!-- End marker: glowing portal / destiny -->
+        <g transform="translate(342,30)">
+          <circle cx="0" cy="0" r="8" fill="rgba(180,100,255,0.15)" stroke="rgba(200,140,255,0.7)" stroke-width="1.4" filter="url(#star-glow)"/>
+          <circle cx="0" cy="0" r="4" fill="rgba(220,180,255,0.4)"/>
+          <text x="0" y="3" font-size="8" fill="rgba(220,180,255,0.95)" text-anchor="middle">★</text>
+          <text x="12" y="4" font-size="7.5" fill="rgba(255,255,255,0.45)" font-family="serif" font-style="italic">fate</text>
+        </g>
+
+        <!-- Compass rose — fantasy style -->
+        <g transform="translate(355,255)" opacity="0.2">
+          <circle cx="0" cy="0" r="13" fill="none" stroke="#c8a860" stroke-width="0.8"/>
+          <circle cx="0" cy="0" r="3" fill="rgba(200,168,80,0.3)"/>
+          <!-- 8 compass points -->
+          <line x1="0" y1="-11" x2="0" y2="11" stroke="#c8a860" stroke-width="0.8"/>
+          <line x1="-11" y1="0" x2="11" y2="0" stroke="#c8a860" stroke-width="0.8"/>
+          <line x1="-7.8" y1="-7.8" x2="7.8" y2="7.8" stroke="#c8a860" stroke-width="0.4"/>
+          <line x1="7.8" y1="-7.8" x2="-7.8" y2="7.8" stroke="#c8a860" stroke-width="0.4"/>
+          <polygon points="0,-11 -2,-5 2,-5" fill="#c8a860"/>
+          <text x="0" y="-14" font-size="5.5" fill="#c8a860" text-anchor="middle" font-family="serif">N</text>
+        </g>
+
+        <g clip-path="url(#title-clip)">
+          <g id="title-group"></g>
+          <text id="svg-author" x="16" y="999" font-family="Georgia,serif" font-size="11" font-style="italic" fill="rgba(255,255,255,0.72)">Patrick Rothfuss</text>
+          <text id="svg-genre-label" x="16" y="999" font-family="Georgia,serif" font-size="9" fill="rgba(200,168,255,0.5)" font-style="italic">High Fantasy</text>
+        </g>
+        <text id="svg-time" x="295" y="195" font-family="Georgia,serif" font-size="16" font-weight="600" fill="rgba(255,255,255,0.80)" text-anchor="middle" filter="url(#soft-glow)">4 hrs</text>
+        <text id="svg-pct"  x="295" y="250" font-family="Georgia,serif" font-size="42" font-weight="700" fill="white" text-anchor="middle" opacity="0.96" filter="url(#soft-glow)">54%</text>
+        <g id="marker-anchor"><g id="marker-sway"><g id="marker-group"></g></g></g>
+      </svg>
+    </div>
+  </div>
+</div>
+
+<script>
+// Quest path — sweeping arc like a fantasy journey across a continent
+const PATH_D = "M 28 245 C 50 230, 70 215, 100 195 C 128 176, 140 155, 168 132 C 196 110, 218 105, 244 84 C 264 68, 305 46, 342 30";
+
+// ── Genre config ─────────────────────────────────────────────────────────────
+const GENRES = {
+  high:      { roadTop:'#7060c0', bg:'linear-gradient(135deg,#0c0820 0%,#1a1240 100%)', bgSolid:'#0c0820', genreLabel:'High Fantasy',      marker:drawDragon,    accent:'#a080f0', anim:'dragon'   },
+  low:       { roadTop:'#607040', bg:'linear-gradient(135deg,#0c1008 0%,#182010 100%)', bgSolid:'#0c1008', genreLabel:'Low Fantasy',       marker:drawTavern,    accent:'#90c060', anim:'walk'     },
+  urban:     { roadTop:'#505880', bg:'linear-gradient(135deg,#08080e 0%,#10101e 100%)', bgSolid:'#08080e', genreLabel:'Urban Fantasy',     marker:drawCityFae,   accent:'#80a0ff', anim:'float'    },
+  dark:      { roadTop:'#502840', bg:'linear-gradient(135deg,#120408 0%,#200810 100%)', bgSolid:'#120408', genreLabel:'Dark Fantasy',      marker:drawWraith,    accent:'#c040a0', anim:'drift'    },
+  grimdark:  { roadTop:'#503020', bg:'linear-gradient(135deg,#140c04 0%,#201408 100%)', bgSolid:'#140c04', genreLabel:'Grimdark Fantasy',  marker:drawWarblade,  accent:'#c06030', anim:'stomp'    },
+  swordsorc: { roadTop:'#806020', bg:'linear-gradient(135deg,#18100a 0%,#281808 100%)', bgSolid:'#18100a', genreLabel:'Sword & Sorcery',   marker:drawSwordOrb,  accent:'#e0a030', anim:'spin'     },
+  fairytale: { roadTop:'#c070a0', bg:'linear-gradient(135deg,#180a18 0%,#280c28 100%)', bgSolid:'#180a18', genreLabel:'Fairy Tale',        marker:drawFairy,     accent:'#ff90d0', anim:'flutter'  },
+  magicreal: { roadTop:'#408060', bg:'linear-gradient(135deg,#081410 0%,#102018 100%)', bgSolid:'#081410', genreLabel:'Magical Realism',   marker:drawMagicBloom,accent:'#60d0a0', anim:'pulse'    },
+};
+
+// ── Cursor drawing functions ──────────────────────────────────────────────────
+
+// High Fantasy → Dragon in flight (side-on silhouette, wings spread)
+function drawDragon(g) {
+  g.innerHTML = `<g>
+    <!-- Body -->
+    <ellipse cx="0" cy="0" rx="11" ry="6" fill="#6040b0"/>
+    <ellipse cx="0" cy="0" rx="9" ry="4.5" fill="#8060d0"/>
+    <!-- Head -->
+    <ellipse cx="12" cy="-3" rx="6" ry="4.5" fill="#7050c0"/>
+    <!-- Snout -->
+    <ellipse cx="17" cy="-2" rx="3.5" ry="2.5" fill="#6040b0"/>
+    <!-- Eye -->
+    <circle cx="14" cy="-4.5" r="1.5" fill="#ffcc00"/>
+    <circle cx="14" cy="-4.5" r="0.7" fill="#000"/>
+    <!-- Nostril flame breath -->
+    <path d="M20,-2 Q25,0 23,3 Q20,2 20,-2 Z" fill="#ff8020" opacity="0.85"/>
+    <path d="M21,-1.5 Q26,0.5 24,2.5" fill="none" stroke="#ffcc30" stroke-width="0.8" opacity="0.7"/>
+    <!-- Horn -->
+    <polygon points="13,-7 15,-13 17,-7" fill="#4030a0"/>
+    <!-- Left wing (up) -->
+    <path d="M-2,-5 Q-14,-22 -24,-16 Q-20,-8 -10,-5 Z" fill="#5040a8" opacity="0.9"/>
+    <path d="M-2,-5 Q-14,-22 -24,-16" fill="none" stroke="#7060c0" stroke-width="1"/>
+    <line x1="-2" y1="-5" x2="-15" y2="-18" stroke="#6050b8" stroke-width="0.7" opacity="0.6"/>
+    <line x1="-2" y1="-5" x2="-22" y2="-13" stroke="#6050b8" stroke-width="0.7" opacity="0.6"/>
+    <!-- Right wing (down, foreshortened) -->
+    <path d="M-2,3 Q-12,16 -22,12 Q-18,5 -9,3 Z" fill="#5040a8" opacity="0.75"/>
+    <path d="M-2,3 Q-12,16 -22,12" fill="none" stroke="#7060c0" stroke-width="0.9"/>
+    <!-- Tail -->
+    <path d="M-10,1 Q-20,6 -26,2 Q-24,-2 -20,0 Q-16,2 -12,0 Z" fill="#6040b0"/>
+    <!-- Tail spike -->
+    <polygon points="-26,2 -32,0 -28,5" fill="#4030a0"/>
+    <!-- Claws (small) -->
+    <line x1="8" y1="5" x2="6" y2="10" stroke="#4030a0" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="4" y1="5.5" x2="2" y2="11" stroke="#4030a0" stroke-width="1.5" stroke-linecap="round"/>
+    <!-- Glow shadow -->
+    <ellipse cx="0" cy="14" rx="12" ry="3" fill="rgba(100,60,200,0.18)"/>
+  </g>`;
+}
+
+// Low Fantasy → Tavern wanderer (hooded traveller with lantern, walking)
+function drawTavern(g) {
+  g.innerHTML = `<g>
+    <!-- Cloak/body -->
+    <path d="M-6,-2 Q-8,10 -7,20 L7,20 Q8,10 6,-2 Z" fill="#5a7040"/>
+    <path d="M-4,-2 Q-5,10 -4,18 L4,18 Q5,10 4,-2 Z" fill="#6a8050" opacity="0.6"/>
+    <!-- Hood/head -->
+    <ellipse cx="0" cy="-8" rx="6" ry="6.5" fill="#4a6030"/>
+    <!-- Hood shadow face -->
+    <ellipse cx="0.5" cy="-7" rx="3.5" ry="4" fill="#2a3820" opacity="0.7"/>
+    <!-- Eyes glint -->
+    <circle cx="-1.5" cy="-8" r="0.8" fill="#c0d080" opacity="0.7"/>
+    <circle cx="2" cy="-8" r="0.8" fill="#c0d080" opacity="0.7"/>
+    <!-- Walking stick (right hand) -->
+    <line x1="7" y1="-2" x2="10" y2="22" stroke="#7a6040" stroke-width="2.5" stroke-linecap="round"/>
+    <ellipse cx="10" cy="23" rx="2" ry="1" fill="#6a5030"/>
+    <!-- Lantern (left hand) -->
+    <rect x="-11" y="4" width="6" height="8" rx="1.5" fill="#2a2010" stroke="#c09030" stroke-width="1"/>
+    <ellipse cx="-8" cy="8" rx="2" ry="2.5" fill="#ffd050" opacity="0.8"/>
+    <!-- Lantern glow -->
+    <ellipse cx="-8" cy="8" rx="5" ry="6" fill="rgba(255,200,60,0.15)"/>
+    <line x1="-8" y1="4" x2="-8" y2="2" stroke="#c09030" stroke-width="1" stroke-linecap="round"/>
+    <!-- Feet (walking pose) -->
+    <ellipse cx="-4" cy="20" rx="3" ry="1.8" fill="#4a5a30" transform="rotate(-10,-4,20)"/>
+    <ellipse cx="4" cy="18" rx="3" ry="1.8" fill="#5a6a40" transform="rotate(10,4,18)"/>
+    <!-- Shadow -->
+    <ellipse cx="0" cy="25" rx="8" ry="2" fill="rgba(80,100,40,0.2)"/>
+  </g>`;
+}
+
+// Urban Fantasy → Winged figure in the city — fae on a rooftop
+function drawCityFae(g) {
+  g.innerHTML = `<g>
+    <!-- Wings (translucent iridescent) -->
+    <path d="M0,-6 Q-18,-18 -22,-8 Q-18,2 -5,0 Z" fill="rgba(100,140,255,0.35)" stroke="#80a0ff" stroke-width="0.8"/>
+    <path d="M0,-6 Q18,-18 22,-8 Q18,2 5,0 Z"  fill="rgba(120,100,255,0.35)" stroke="#a080ff" stroke-width="0.8"/>
+    <!-- Wing shimmer veins -->
+    <line x1="0" y1="-6" x2="-16" y2="-12" stroke="rgba(180,200,255,0.4)" stroke-width="0.6"/>
+    <line x1="0" y1="-6" x2="-20" y2="-5" stroke="rgba(180,200,255,0.3)" stroke-width="0.6"/>
+    <line x1="0" y1="-6" x2="16" y2="-12" stroke="rgba(200,180,255,0.4)" stroke-width="0.6"/>
+    <line x1="0" y1="-6" x2="20" y2="-5" stroke="rgba(200,180,255,0.3)" stroke-width="0.6"/>
+    <!-- Lower wings -->
+    <path d="M0,2 Q-10,10 -12,5 Q-8,0 -2,2 Z" fill="rgba(100,140,255,0.25)" stroke="#80a0ff" stroke-width="0.7"/>
+    <path d="M0,2 Q10,10 12,5 Q8,0 2,2 Z"  fill="rgba(120,100,255,0.25)" stroke="#a080ff" stroke-width="0.7"/>
+    <!-- Body -->
+    <ellipse cx="0" cy="3" rx="4" ry="7" fill="#2030a0"/>
+    <!-- Head -->
+    <circle cx="0" cy="-11" r="5" fill="#3040b0"/>
+    <!-- Hair -->
+    <path d="M-5,-13 Q-3,-20 0,-18 Q3,-20 5,-13" fill="#c0a0ff"/>
+    <path d="M-5,-13 Q-7,-16 -6,-10" fill="#c0a0ff"/>
+    <path d="M5,-13 Q7,-16 6,-10" fill="#c0a0ff"/>
+    <!-- Eyes (glowing) -->
+    <ellipse cx="-2" cy="-11" rx="1.5" ry="1.8" fill="#80ffff" opacity="0.9"/>
+    <ellipse cx="2" cy="-11"  rx="1.5" ry="1.8" fill="#80ffff" opacity="0.9"/>
+    <!-- Magic sparkles around hands -->
+    <circle cx="-7" cy="6" r="1.5" fill="#80a0ff" opacity="0.8" filter="url(#star-glow)"/>
+    <circle cx="7"  cy="6" r="1.5" fill="#a080ff" opacity="0.8" filter="url(#star-glow)"/>
+    <circle cx="-9" cy="3" r="0.8" fill="#ffffff" opacity="0.6"/>
+    <circle cx="9"  cy="3" r="0.8" fill="#ffffff" opacity="0.6"/>
+    <!-- Glow under feet -->
+    <ellipse cx="0" cy="13" rx="6" ry="2.5" fill="rgba(100,130,255,0.2)" filter="url(#star-glow)"/>
+  </g>`;
+}
+
+// Dark Fantasy → Wraith / shadow specter drifting forward
+function drawWraith(g) {
+  g.innerHTML = `<g>
+    <!-- Flowing dark robe body -->
+    <path d="M0,-18 Q8,-10 10,0 Q12,12 8,22 Q4,28 0,26 Q-4,28 -8,22 Q-12,12 -10,0 Q-8,-10 0,-18 Z" fill="#1a0828" stroke="#c040c0" stroke-width="1.2" opacity="0.95"/>
+    <!-- Inner dark void -->
+    <path d="M0,-14 Q5,-8 6,0 Q7,10 4,18 Q0,22 -4,18 Q-7,10 -6,0 Q-5,-8 0,-14 Z" fill="#0d0118" opacity="0.8"/>
+    <!-- Hollow eye sockets (glowing) -->
+    <ellipse cx="-3" cy="-8" rx="2.5" ry="3" fill="#cc40cc" opacity="0.9" filter="url(#star-glow)"/>
+    <ellipse cx="3"  cy="-8" rx="2.5" ry="3" fill="#cc40cc" opacity="0.9" filter="url(#star-glow)"/>
+    <ellipse cx="-3" cy="-8" rx="1" ry="1.5" fill="#ff80ff" opacity="0.8"/>
+    <ellipse cx="3"  cy="-8" rx="1" ry="1.5" fill="#ff80ff" opacity="0.8"/>
+    <!-- Wispy trailing tendrils at bottom -->
+    <path d="M-8,22 Q-12,28 -10,32" fill="none" stroke="#c040c0" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
+    <path d="M0,26 Q0,32 2,36" fill="none" stroke="#c040c0" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
+    <path d="M8,22 Q12,28 10,32" fill="none" stroke="#c040c0" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
+    <!-- Outstretched claw hands -->
+    <path d="M-10,2 Q-18,-2 -20,0" fill="none" stroke="#c040c0" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="-20" y1="0"  x2="-24" y2="-3" stroke="#c040c0" stroke-width="1" stroke-linecap="round"/>
+    <line x1="-20" y1="0"  x2="-24" y2="-1" stroke="#c040c0" stroke-width="1" stroke-linecap="round"/>
+    <line x1="-20" y1="0"  x2="-24" y2="2"  stroke="#c040c0" stroke-width="1" stroke-linecap="round"/>
+    <path d="M10,2 Q18,-2 20,0" fill="none" stroke="#c040c0" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="20" y1="0" x2="24" y2="-3" stroke="#c040c0" stroke-width="1" stroke-linecap="round"/>
+    <line x1="20" y1="0" x2="24" y2="-1" stroke="#c040c0" stroke-width="1" stroke-linecap="round"/>
+    <line x1="20" y1="0" x2="24" y2="2"  stroke="#c040c0" stroke-width="1" stroke-linecap="round"/>
+    <!-- Misty ground effect -->
+    <ellipse cx="0" cy="34" rx="10" ry="3" fill="rgba(200,60,200,0.12)" filter="url(#star-glow)"/>
+  </g>`;
+}
+
+// Grimdark → Battle-worn soldier marching — heavy warplate, war banner
+function drawWarblade(g) {
+  g.innerHTML = `<g>
+    <!-- War banner on back -->
+    <line x1="4" y1="-20" x2="4" y2="10" stroke="#8a5020" stroke-width="2" stroke-linecap="round"/>
+    <polygon points="4,-20 16,-16 4,-12" fill="#c04020" opacity="0.9"/>
+    <line x1="4" y1="-16" x2="14" y2="-16" stroke="#e06030" stroke-width="0.8" opacity="0.5"/>
+    <!-- Helmet -->
+    <ellipse cx="0" cy="-14" rx="7" ry="6" fill="#5a4030"/>
+    <rect x="-7" y="-14" width="14" height="4" rx="1" fill="#6a5040"/>
+    <!-- Visor slit -->
+    <rect x="-5" y="-14" width="10" height="1.5" rx="0.5" fill="#ff4020" opacity="0.6"/>
+    <!-- Shoulder pauldrons -->
+    <ellipse cx="-8" cy="-5" rx="5" ry="3.5" fill="#5a4030"/>
+    <ellipse cx="8"  cy="-5" rx="5" ry="3.5" fill="#5a4030"/>
+    <!-- Chest plate -->
+    <rect x="-6" y="-8" width="12" height="14" rx="2" fill="#4a3020"/>
+    <line x1="0" y1="-8" x2="0" y2="6" stroke="#6a5030" stroke-width="0.8" opacity="0.5"/>
+    <!-- Sword arm (right, raised) -->
+    <rect x="8" y="-12" width="3" height="14" rx="1" fill="#4a3020"/>
+    <!-- Sword -->
+    <rect x="9" y="-28" width="2" height="18" rx="0.5" fill="#c0c0d0"/>
+    <rect x="6"  y="-12" width="8"  height="2"  rx="0.5" fill="#8a6040"/>
+    <rect x="8.5" y="-30" width="3" height="3" rx="0.5" fill="#a0a0b0"/>
+    <!-- Shield arm (left) -->
+    <ellipse cx="-10" cy="0" rx="5" ry="7" fill="#4a3020" stroke="#6a5030" stroke-width="1"/>
+    <line x1="-10" y1="-6" x2="-10" y2="6" stroke="#6a5030" stroke-width="0.8"/>
+    <line x1="-14" y1="0" x2="-6" y2="0" stroke="#6a5030" stroke-width="0.8"/>
+    <!-- Legs (marching) -->
+    <rect x="-5" y="6" width="4" height="10" rx="1" fill="#4a3020"/>
+    <rect x="1"  y="6" width="4" height="10" rx="1" fill="#4a3020"/>
+    <!-- Boots -->
+    <ellipse cx="-3" cy="17" rx="4" ry="2.5" fill="#3a2010" transform="rotate(-8,-3,17)"/>
+    <ellipse cx="3"  cy="15" rx="4" ry="2.5" fill="#3a2010" transform="rotate(8,3,15)"/>
+    <!-- Ground shadow -->
+    <ellipse cx="0" cy="22" rx="9" ry="2.5" fill="rgba(180,80,30,0.18)"/>
+  </g>`;
+}
+
+// Sword & Sorcery → Spinning enchanted sword with orbiting magic orb
+function drawSwordOrb(g) {
+  g.innerHTML = `<g>
+    <!-- Sword blade -->
+    <polygon points="0,-24 -2.5,-6 2.5,-6" fill="#e8d080"/>
+    <polygon points="0,-24 -1,-6 0,-10" fill="#fff8c0" opacity="0.7"/>
+    <!-- Fuller (blade groove) -->
+    <line x1="0" y1="-22" x2="0" y2="-8" stroke="rgba(200,160,20,0.4)" stroke-width="0.8"/>
+    <!-- Crossguard -->
+    <rect x="-9" y="-6" width="18" height="3" rx="1.5" fill="#c08020"/>
+    <ellipse cx="-9" cy="-4.5" rx="2.5" ry="2.5" fill="#d09030"/>
+    <ellipse cx="9"  cy="-4.5" rx="2.5" ry="2.5" fill="#d09030"/>
+    <!-- Grip -->
+    <rect x="-2.5" y="-3" width="5" height="12" rx="1.5" fill="#8a5020"/>
+    <line x1="-2.5" y1="0"  x2="2.5" y2="0"  stroke="#c08030" stroke-width="0.8" opacity="0.6"/>
+    <line x1="-2.5" y1="3"  x2="2.5" y2="3"  stroke="#c08030" stroke-width="0.8" opacity="0.6"/>
+    <line x1="-2.5" y1="6"  x2="2.5" y2="6"  stroke="#c08030" stroke-width="0.8" opacity="0.6"/>
+    <!-- Pommel -->
+    <circle cx="0" cy="11" r="3.5" fill="#c08020"/>
+    <circle cx="0" cy="11" r="1.5" fill="#ffd040"/>
+    <!-- Orbiting magic orb -->
+    <g id="orb-orbit">
+      <circle cx="16" cy="-8" r="5" fill="rgba(255,160,30,0.25)" stroke="#ffa020" stroke-width="1.2" filter="url(#star-glow)"/>
+      <circle cx="16" cy="-8" r="2.5" fill="#ffcc50" opacity="0.9"/>
+      <circle cx="15" cy="-9" r="1" fill="#fff" opacity="0.7"/>
+    </g>
+    <!-- Magic rune glow along blade -->
+    <line x1="-1" y1="-18" x2="1" y2="-18" stroke="#ffd040" stroke-width="1.5" opacity="0.7"/>
+    <line x1="-1" y1="-14" x2="1" y2="-14" stroke="#ffd040" stroke-width="1.5" opacity="0.5"/>
+    <line x1="-1" y1="-10" x2="1" y2="-10" stroke="#ffd040" stroke-width="1.5" opacity="0.4"/>
+    <!-- Shadow -->
+    <ellipse cx="0" cy="18" rx="7" ry="2" fill="rgba(200,150,30,0.2)"/>
+  </g>`;
+}
+
+// Fairy Tale → Tiny fairy with wand, wings fluttering, leaving sparkle trail
+function drawFairy(g) {
+  g.innerHTML = `<g>
+    <!-- Wings (big, rounded, butterfly-like) -->
+    <path d="M0,-8 Q-16,-22 -20,-12 Q-18,-2 -6,-2 Z" fill="rgba(255,150,220,0.45)" stroke="#ff90d0" stroke-width="1"/>
+    <path d="M0,-8 Q16,-22 20,-12 Q18,-2 6,-2 Z"  fill="rgba(200,150,255,0.45)" stroke="#d090ff" stroke-width="1"/>
+    <!-- Wing veins -->
+    <path d="M0,-8 Q-12,-18 -18,-10" fill="none" stroke="rgba(255,180,230,0.5)" stroke-width="0.7"/>
+    <path d="M0,-8 Q-16,-14 -18,-8" fill="none" stroke="rgba(255,180,230,0.4)" stroke-width="0.6"/>
+    <path d="M0,-8 Q12,-18 18,-10" fill="none" stroke="rgba(210,180,255,0.5)" stroke-width="0.7"/>
+    <path d="M0,-8 Q16,-14 18,-8" fill="none" stroke="rgba(210,180,255,0.4)" stroke-width="0.6"/>
+    <!-- Lower wings -->
+    <path d="M-3,0 Q-12,8 -10,14 Q-4,12 -2,4 Z" fill="rgba(255,150,220,0.35)" stroke="#ff90d0" stroke-width="0.8"/>
+    <path d="M3,0  Q12,8 10,14 Q4,12 2,4 Z"  fill="rgba(200,150,255,0.35)" stroke="#d090ff" stroke-width="0.8"/>
+    <!-- Dress/body -->
+    <path d="M-4,-4 Q-5,4 -4,12 L4,12 Q5,4 4,-4 Z" fill="#ff70c0"/>
+    <path d="M-3,-4 Q-3,4 -3,10 L3,10 Q3,4 3,-4 Z" fill="#ff90d0" opacity="0.5"/>
+    <!-- Head -->
+    <circle cx="0" cy="-12" r="5" fill="#ffccaa"/>
+    <!-- Hair -->
+    <path d="M-5,-14 Q-2,-20 0,-19 Q2,-20 5,-14" fill="#ffd060"/>
+    <path d="M-5,-14 Q-7,-12 -6,-8" fill="#ffd060"/>
+    <!-- Eyes -->
+    <circle cx="-1.5" cy="-12" r="1.2" fill="#8030c0"/>
+    <circle cx="1.5"  cy="-12" r="1.2" fill="#8030c0"/>
+    <circle cx="-1.1" cy="-12.4" r="0.4" fill="#fff" opacity="0.8"/>
+    <circle cx="1.9"  cy="-12.4" r="0.4" fill="#fff" opacity="0.8"/>
+    <!-- Smile -->
+    <path d="M-2,-10 Q0,-9 2,-10" fill="none" stroke="#c06080" stroke-width="0.8" stroke-linecap="round"/>
+    <!-- Wand (right hand) -->
+    <line x1="6" y1="2" x2="16" y2="-10" stroke="#d0a030" stroke-width="1.5" stroke-linecap="round"/>
+    <circle cx="16" cy="-10" r="3" fill="#ffffa0" opacity="0.9" filter="url(#star-glow)"/>
+    <circle cx="16" cy="-10" r="1.5" fill="#fff" opacity="0.9"/>
+    <!-- Sparkle stars from wand -->
+    <text x="18" y="-14" font-size="5" fill="#ffffa0" opacity="0.9">✦</text>
+    <text x="22" y="-8"  font-size="3.5" fill="#ffccff" opacity="0.7">✦</text>
+    <text x="14" y="-18" font-size="3"   fill="#ffff80" opacity="0.6">✦</text>
+    <!-- Glowing trail under feet -->
+    <ellipse cx="0" cy="16" rx="7" ry="2.5" fill="rgba(255,150,220,0.2)" filter="url(#star-glow)"/>
+  </g>`;
+}
+
+// Magical Realism → Blooming flower that is also a compass / living map marker
+function drawMagicBloom(g) {
+  g.innerHTML = `<g>
+    <!-- Stem -->
+    <path d="M0,24 Q-4,14 0,6" fill="none" stroke="#40b070" stroke-width="2.5" stroke-linecap="round"/>
+    <path d="M0,18 Q-8,14 -12,10" fill="none" stroke="#40b070" stroke-width="1.5" stroke-linecap="round"/>
+    <path d="M0,14 Q6,10 9,6" fill="none" stroke="#40b070" stroke-width="1.5" stroke-linecap="round"/>
+    <!-- Leaves -->
+    <path d="M0,18 Q-8,14 -12,10 Q-6,8 0,14 Z" fill="#50c060" opacity="0.8"/>
+    <path d="M0,14 Q6,10 9,6 Q6,4 0,10 Z" fill="#50c060" opacity="0.8"/>
+    <!-- Petals (5 petals, compass-rose style) -->
+    <ellipse cx="0"    cy="-10" rx="4" ry="10" fill="#60d090" opacity="0.9"/>
+    <ellipse cx="9.5"  cy="-7"  rx="4" ry="10" fill="#60d090" opacity="0.9" transform="rotate(72,9.5,-7)"/>
+    <ellipse cx="5.9"  cy="3"   rx="4" ry="10" fill="#60d090" opacity="0.9" transform="rotate(144,5.9,3)"/>
+    <ellipse cx="-5.9" cy="3"   rx="4" ry="10" fill="#60d090" opacity="0.9" transform="rotate(216,-5.9,3)"/>
+    <ellipse cx="-9.5" cy="-7"  rx="4" ry="10" fill="#60d090" opacity="0.9" transform="rotate(288,-9.5,-7)"/>
+    <!-- Inner petals / second layer -->
+    <ellipse cx="0"   cy="-7"  rx="2.5" ry="7" fill="#80e0a0" opacity="0.8"/>
+    <ellipse cx="6.6" cy="-4"  rx="2.5" ry="7" fill="#80e0a0" opacity="0.8" transform="rotate(72,6.6,-4)"/>
+    <ellipse cx="4.1" cy="3.5" rx="2.5" ry="7" fill="#80e0a0" opacity="0.8" transform="rotate(144,4.1,3.5)"/>
+    <ellipse cx="-4.1" cy="3.5" rx="2.5" ry="7" fill="#80e0a0" opacity="0.8" transform="rotate(216,-4.1,3.5)"/>
+    <ellipse cx="-6.6" cy="-4" rx="2.5" ry="7" fill="#80e0a0" opacity="0.8" transform="rotate(288,-6.6,-4)"/>
+    <!-- Glowing center -->
+    <circle cx="0" cy="-2" r="5" fill="#c0ffd0" opacity="0.9" filter="url(#star-glow)"/>
+    <circle cx="0" cy="-2" r="2.5" fill="#ffffff" opacity="0.9"/>
+    <!-- Floating particles -->
+    <circle cx="-14" cy="-4" r="1.2" fill="#60d090" opacity="0.6"/>
+    <circle cx="13"  cy="-8" r="1"   fill="#80e0a0" opacity="0.5"/>
+    <circle cx="-10" cy="-14" r="0.8" fill="#40c070" opacity="0.5"/>
+    <circle cx="10"  cy="-16" r="1"   fill="#60d090" opacity="0.6"/>
+    <!-- Ground glow -->
+    <ellipse cx="0" cy="27" rx="8" ry="2.5" fill="rgba(60,200,100,0.18)" filter="url(#star-glow)"/>
+  </g>`;
+}
+
+// ── Core engine ───────────────────────────────────────────────────────────────
+let pct = 54, currentSize = 'landscape', bgImage = null, celebrating = false, swayAnim = null, isPreview = false;
+
+function getSVGPath() {
+  const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  p.setAttribute('d', PATH_D);
+  return p;
+}
+function ptAt(t) {
+  const p = getSVGPath();
+  return p.getPointAtLength(p.getTotalLength() * Math.min(Math.max(t, 0), 1));
+}
+function togglePreview() {
+  isPreview = !isPreview;
+  document.body.classList.toggle('preview-mode', isPreview);
+  const btn = document.getElementById('preview-btn');
+  if (isPreview) { document.body.appendChild(btn); btn.textContent = '✕ exit'; }
+  else { document.getElementById('panel').appendChild(btn); btn.textContent = '⛶ preview'; }
+}
+
+function applyGenreTheme() {
+  const G = GENRES[document.getElementById('inp-genre').value];
+  if (!bgImage) document.getElementById('canvas-wrap').style.background = G.bg;
+  document.getElementById('road-border').setAttribute('stroke', 'rgba(0,0,0,0.45)');
+  document.getElementById('road-border').setAttribute('stroke-width', '26');
+  document.getElementById('road-border').setAttribute('d', PATH_D);
+  document.getElementById('road-body').setAttribute('stroke', G.roadTop);
+  document.getElementById('road-body').setAttribute('stroke-width', '18');
+  document.getElementById('road-body').setAttribute('d', PATH_D);
+  document.getElementById('road-dash').setAttribute('d', PATH_D);
+  document.getElementById('road-dash').setAttribute('stroke', 'rgba(255,255,255,0.25)');
+  document.getElementById('road-dash').setAttribute('stroke-width', '1.5');
+  document.getElementById('road-dash').setAttribute('stroke-dasharray', '4 10');
+  document.getElementById('svg-genre-label').textContent = G.genreLabel;
+  document.querySelectorAll('#map-grid line').forEach(l => l.setAttribute('stroke', G.accent));
+  document.querySelectorAll('#terrain-marks polygon, #terrain-marks circle, #terrain-marks rect').forEach(el => el.setAttribute('fill', G.accent));
+}
+
+function renderTitle(text) {
+  const g = document.getElementById('title-group');
+  g.innerHTML = '';
+  const MAX_W = 158, MAX_FONT = 20, MIN_FONT = 12, LH = 1.28, START_Y = 28;
+  const ns = 'http://www.w3.org/2000/svg';
+  let chosenFont = MIN_FONT, chosenLines = [text];
+  for (let fs = MAX_FONT; fs >= MIN_FONT; fs--) {
+    const cpl = Math.floor(MAX_W / (fs * 0.56));
+    const lines = wrapText(text, cpl);
+    if (lines.length * fs * LH <= 54) { chosenFont = fs; chosenLines = lines; break; }
+  }
+  const el = document.createElementNS(ns, 'text');
+  el.setAttribute('font-family', "Georgia,serif");
+  el.setAttribute('font-size', chosenFont);
+  el.setAttribute('font-weight', '700');
+  el.setAttribute('fill', 'white');
+  el.setAttribute('opacity', '0.96');
+  el.setAttribute('filter', 'url(#soft-glow)');
+  chosenLines.forEach((line, i) => {
+    const ts = document.createElementNS(ns, 'tspan');
+    ts.setAttribute('x', '16');
+    ts.setAttribute('y', START_Y + i * chosenFont * LH);
+    ts.textContent = line;
+    el.appendChild(ts);
+  });
+  g.appendChild(el);
+  return START_Y + (chosenLines.length - 1) * chosenFont * LH + chosenFont * 0.3;
+}
+
+function wrapText(text, cpl) {
+  const words = text.split(' '), lines = [];
+  let cur = '';
+  for (const w of words) {
+    const t = cur ? cur + ' ' + w : w;
+    if (t.length > cpl && cur) { lines.push(cur); cur = w; } else cur = t;
+  }
+  if (cur) lines.push(cur);
+  return lines;
+}
+
+function updateTexts() {
+  const titleText = document.getElementById('inp-title').value || 'Title';
+  const authorText = document.getElementById('inp-author').value || 'Author';
+  const genre = document.getElementById('inp-genre').value;
+  const timeText = document.getElementById('inp-time').value || '';
+  const bottomY = renderTitle(titleText);
+  document.getElementById('svg-author').setAttribute('y', bottomY + 18);
+  document.getElementById('svg-author').textContent = authorText;
+  document.getElementById('svg-genre-label').setAttribute('y', bottomY + 34);
+  document.getElementById('svg-genre-label').textContent = GENRES[genre].genreLabel;
+  document.getElementById('svg-time').textContent = timeText;
+  document.getElementById('svg-pct').textContent = pct + '%';
+}
+
+function startSway() {
+  if (swayAnim) cancelAnimationFrame(swayAnim);
+  let t0 = null;
+  function frame(ts) {
+    if (!t0) t0 = ts;
+    const e = (ts - t0) / 1000;
+    const genre = document.getElementById('inp-genre').value;
+    const anim = GENRES[genre].anim;
+    const sway = document.getElementById('marker-sway');
+    switch(anim) {
+      case 'dragon':
+        // Soaring: slow banking side to side + gentle up-down like thermals
+        sway.setAttribute('transform',
+          `rotate(${Math.sin(e*0.8)*12}) translate(0,${Math.sin(e*1.1)*5})`);
+        break;
+      case 'walk':
+        // Lantern-carrier bobbing walk
+        sway.setAttribute('transform',
+          `rotate(${Math.sin(e*3)*6}) translate(0,${Math.sin(e*3)*3})`);
+        break;
+      case 'float':
+        // Fae hovering: fast flutter + lazy drift
+        sway.setAttribute('transform',
+          `rotate(${Math.sin(e*1.2)*8}) translate(${Math.sin(e*0.7)*3},${Math.sin(e*1.5)*6})`);
+        break;
+      case 'drift':
+        // Wraith drifting: slow sinuous side-to-side, vertical oscillation
+        sway.setAttribute('transform',
+          `translate(${Math.sin(e*0.6)*8},${Math.sin(e*0.9)*6}) rotate(${Math.sin(e*0.5)*10})`);
+        break;
+      case 'stomp':
+        // Soldier march: rhythmic bob, slight forward lean
+        sway.setAttribute('transform',
+          `rotate(${Math.sin(e*4)*4}) translate(0,${Math.abs(Math.sin(e*4))*4})`);
+        break;
+      case 'spin':
+        // Orbiting sword: gentle spin around its axis
+        sway.setAttribute('transform',
+          `rotate(${e*40 % 360}) translate(0,${Math.sin(e*1.5)*3})`);
+        break;
+      case 'flutter':
+        // Fairy wing flutter: fast up-down oscillation + side drift
+        sway.setAttribute('transform',
+          `translate(${Math.sin(e*1.4)*5},${Math.sin(e*4)*4}) rotate(${Math.sin(e*2)*10})`);
+        break;
+      case 'pulse':
+        // Magical bloom: gentle scale pulse + slow rotation
+        const sc = 1 + Math.sin(e*1.8)*0.12;
+        sway.setAttribute('transform',
+          `scale(${sc}) rotate(${Math.sin(e*0.5)*8})`);
+        break;
+      default:
+        sway.setAttribute('transform', `rotate(${Math.sin(e*1.2)*6})`);
+    }
+    swayAnim = requestAnimationFrame(frame);
+  }
+  swayAnim = requestAnimationFrame(frame);
+}
+
+function placeMarker(scale = 1) {
+  const pt = ptAt(pct / 100);
+  document.getElementById('marker-anchor').setAttribute('transform', `translate(${pt.x},${pt.y})`);
+  if (scale !== 1) document.getElementById('marker-sway').setAttribute('transform', `scale(${scale})`);
+  const g = document.getElementById('marker-group');
+  g.innerHTML = '';
+  GENRES[document.getElementById('inp-genre').value].marker(g);
+}
+
+// Celebration: magical sparkle burst — golden stars and fairy dust
+function celebrate() {
+  if (celebrating) return;
+  celebrating = true;
+  const cc = document.getElementById('confetti-container');
+  cc.innerHTML = '';
+  const colors = ['#ffd700','#ff90d0','#c080ff','#80ffb0','#ffffa0','#ff80b0','#80d0ff','#ffffff'];
+  const shapes = ['✦','★','✧','·','◆','✿'];
+  for (let i = 0; i < 80; i++) {
+    const el = document.createElement('div');
+    const useShape = Math.random() > 0.45;
+    const s = Math.random() * 7 + 3;
+    if (useShape) {
+      el.textContent = shapes[Math.floor(Math.random() * shapes.length)];
+      el.style.cssText = `position:absolute;font-size:${s+4}px;color:${colors[i%colors.length]};left:${Math.random()*100}%;top:-16px;opacity:1;filter:blur(${Math.random()>0.7?'0':'0'}px);text-shadow:0 0 6px currentColor`;
+    } else {
+      el.style.cssText = `position:absolute;width:${s}px;height:${s}px;background:${colors[i%colors.length]};border-radius:50%;left:${Math.random()*100}%;top:-12px;opacity:1;box-shadow:0 0 6px currentColor`;
+    }
+    cc.appendChild(el);
+    el.animate([
+      { transform:'translateY(0) translateX(0) rotate(0deg) scale(1)', opacity:1 },
+      { transform:`translateY(${Math.random()*260+40}px) translateX(${(Math.random()-.5)*180}px) rotate(${Math.random()*720}deg) scale(${Math.random()*0.5+0.2})`, opacity:0 }
+    ], { duration: Math.random()*2200+1000, easing:'cubic-bezier(0.25,0.46,0.45,0.94)', fill:'forwards', delay: Math.random()*600 });
+  }
+  let fr = 0, growing = true, sc = 1;
+  function pulse() {
+    fr++;
+    if (fr > 60) { placeMarker(1); celebrating = false; return; }
+    sc = growing ? sc + 0.05 : sc - 0.04;
+    if (sc > 2.0) growing = false;
+    const pt = ptAt(1);
+    document.getElementById('marker-anchor').setAttribute('transform', `translate(${pt.x},${pt.y})`);
+    document.getElementById('marker-sway').setAttribute('transform', `scale(${sc})`);
+    requestAnimationFrame(pulse);
+  }
+  requestAnimationFrame(pulse);
+  setTimeout(() => cc.innerHTML = '', 4500);
+}
+
+document.getElementById('inp-pct').addEventListener('input', e => {
+  pct = parseInt(e.target.value);
+  document.getElementById('pct-label').textContent = pct + '%';
+  celebrating = false;
+  render();
+  if (pct >= 100) setTimeout(celebrate, 300);
+});
+['inp-title','inp-author','inp-time'].forEach(id => document.getElementById(id).addEventListener('input', updateTexts));
+document.getElementById('inp-genre').addEventListener('change', () => { celebrating = false; render(); startSway(); });
+document.getElementById('file-in').addEventListener('change', e => {
+  const file = e.target.files[0]; if (!file) return;
+  const r = new FileReader();
+  r.onload = ev => { bgImage = ev.target.result; document.getElementById('bg-layer').style.backgroundImage = `url(${bgImage})`; document.getElementById('canvas-wrap').style.background = 'transparent'; };
+  r.readAsDataURL(file);
+});
+function clearBg() { bgImage = null; document.getElementById('bg-layer').style.backgroundImage = ''; applyGenreTheme(); }
+function setSize(k, btn) { currentSize = k; document.querySelectorAll('.sz').forEach(b => b.classList.remove('active')); btn.classList.add('active'); }
+const SIZES = { 'landscape':{w:1080,h:566}, 'ig-post':{w:1080,h:1080}, 'ig-story':{w:1080,h:1920}, 'pinterest':{w:1000,h:1500} };
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y);
+  ctx.arcTo(x+w,y,x+w,y+r,r); ctx.lineTo(x+w,y+h-r);
+  ctx.arcTo(x+w,y+h,x+w-r,y+h,r); ctx.lineTo(x+r,y+h);
+  ctx.arcTo(x,y+h,x,y+h-r,r); ctx.lineTo(x,y+r);
+  ctx.arcTo(x,y,x+r,y,r); ctx.closePath();
+}
+
+function downloadImg() {
+  const sz = SIZES[currentSize], genre = GENRES[document.getElementById('inp-genre').value];
+  const canvas = document.createElement('canvas');
+  canvas.width = sz.w; canvas.height = sz.h;
+  const ctx = canvas.getContext('2d');
+  ctx.save();
+  roundRect(ctx,0,0,sz.w,sz.h,sz.w*0.04);
+  ctx.clip();
+  const clone = document.getElementById('main-svg').cloneNode(true);
+  clone.setAttribute('width', sz.w); clone.setAttribute('height', sz.h);
+  clone.setAttribute('viewBox', '0 0 380 280');
+  const url = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(clone)],{type:'image/svg+xml'}));
+  const img = new Image();
+  img.onload = () => {
+    if (!bgImage) { ctx.fillStyle = genre.bgSolid; ctx.fillRect(0,0,sz.w,sz.h); }
+    ctx.drawImage(img,0,0,sz.w,sz.h);
+    ctx.restore();
+    URL.revokeObjectURL(url);
+    const a = document.createElement('a');
+    a.download = 'current-reading-fantasy.png';
+    a.href = canvas.toDataURL('image/png');
+    a.click();
+  };
+  img.src = url;
+}
+
+function render() { applyGenreTheme(); updateTexts(); placeMarker(); }
+render(); startSway();
+</script>
+</body>
+</html>
