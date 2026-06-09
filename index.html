@@ -55,7 +55,7 @@
     }
 
     .tools-section {
-      max-width: 720px;
+      max-width: 820px;
       margin: 0 auto;
       padding: 44px 24px 60px;
     }
@@ -68,22 +68,46 @@
       margin-bottom: 30px;
     }
 
+    /* ── Identity card (full width solo) ── */
+    .tools-solo {
+      margin-bottom: 22px;
+    }
+    .tools-solo .tool-card {
+      max-width: 100%;
+    }
+
+    /* ── Tracker intro row ── */
+    .tracker-intro {
+      text-align: center;
+      margin: 36px 0 20px;
+    }
+    .tracker-intro .section-label {
+      margin-bottom: 6px;
+    }
+    .tracker-intro p {
+      font-size: 12px;
+      color: #9a8068;
+      font-style: italic;
+      letter-spacing: 0.3px;
+    }
+
+    /* ── Genre grid ── */
     .tools-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-      gap: 22px;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 18px;
     }
 
     .tool-card {
       background: #fffaf4;
       border: 1px solid #e8d8c4;
       border-radius: 18px;
-      padding: 30px 26px 26px;
+      padding: 28px 24px 22px;
       text-decoration: none;
       color: inherit;
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 9px;
       transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
       position: relative;
       overflow: hidden;
@@ -102,16 +126,16 @@
       border-color: #d4b898;
     }
 
-    .tool-icon { font-size: 32px; line-height: 1; }
+    .tool-icon { font-size: 30px; line-height: 1; }
     .tool-name {
       font-family: 'Playfair Display', serif;
-      font-size: 20px;
+      font-size: 18px;
       font-weight: 600;
       color: #3a2e25;
       line-height: 1.25;
     }
     .tool-desc {
-      font-size: 13px;
+      font-size: 12.5px;
       color: #7a6655;
       line-height: 1.65;
       flex: 1;
@@ -133,15 +157,43 @@
       font-size: 12px;
       color: #b09070;
       letter-spacing: 1px;
-      margin-top: 8px;
+      margin-top: 6px;
       display: flex;
       align-items: center;
       gap: 5px;
     }
     .tool-cta::after { content: '→'; }
 
-    .card-rose  { --accent: #d4847a; --tag-bg: #fdecea; --tag-color: #b05548; }
-    .card-sage  { --accent: #8aab8a; --tag-bg: #eef4ee; --tag-color: #4a7a4a; }
+    /* ── Colour themes ── */
+    .card-rose      { --accent: #d4847a; --tag-bg: #fdecea; --tag-color: #b05548; }
+    .card-mystery   { --accent: #7060a0; --tag-bg: #f0edf8; --tag-color: #5040808; }
+    .card-mystery   { --accent: #6a5090; --tag-bg: #eeebf6; --tag-color: #50408a; }
+    .card-fantasy   { --accent: #9070c0; --tag-bg: #f2eef8; --tag-color: #6040a0; }
+    .card-scifi     { --accent: #3090b0; --tag-bg: #e8f4f8; --tag-color: #206880; }
+    .card-horror    { --accent: #a03030; --tag-bg: #faecec; --tag-color: #802020; }
+    .card-fiction   { --accent: #b08040; --tag-bg: #f8f2e6; --tag-color: #806020; }
+    .card-romance   { --accent: #d4847a; --tag-bg: #fdecea; --tag-color: #b05548; }
+
+    /* ── Tracker genre group heading ── */
+    .genre-group {
+      margin-top: 32px;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .genre-group-label {
+      font-size: 10px;
+      letter-spacing: 2.5px;
+      text-transform: uppercase;
+      color: #b09070;
+      white-space: nowrap;
+    }
+    .genre-group-line {
+      flex: 1;
+      height: 1px;
+      background: #e8d8c4;
+    }
 
     .divider {
       text-align: center;
@@ -186,27 +238,117 @@
   </div>
 
   <div class="tools-section">
-    <p class="section-label">Choose your tool</p>
 
+    <!-- ── Book Identity Card (solo) ── -->
+    <p class="section-label">Featured Tool</p>
+    <div class="tools-solo">
+      <div class="tools-grid" style="grid-template-columns: 1fr;">
+        <a class="tool-card card-rose" href="book-identity.html">
+          <div class="tool-icon">🪪</div>
+          <div class="tool-name">Book Identity Card</div>
+          <div class="tool-desc">Create a beautiful ID card for every book you finish — with cover photo, rating, dates, and a custom stamp.</div>
+          <span class="tool-tag">Finished reads</span>
+          <div class="tool-cta">Open tool</div>
+        </a>
+      </div>
+    </div>
+
+    <!-- ── Current Reading Trackers ── -->
+    <div class="tracker-intro">
+      <p class="section-label">Current Reading Tracker</p>
+      <p>Track your progress with a unique animated cursor — pick your genre below</p>
+    </div>
+
+    <!-- Romance -->
+    <div class="genre-group">
+      <span class="genre-group-label">Romance</span>
+      <div class="genre-group-line"></div>
+    </div>
     <div class="tools-grid">
-
-      <a class="tool-card card-rose" href="book-id.html">
-        <div class="tool-icon">🪪</div>
-        <div class="tool-name">Book Identity Card</div>
-        <div class="tool-desc">Create a beautiful ID card for every book you finish — with cover photo, rating, dates, and a custom stamp.</div>
-        <span class="tool-tag">Finished reads</span>
-        <div class="tool-cta">Open tool</div>
-      </a>
-
-      <a class="tool-card card-sage" href="romance-current-read-template.html">
+      <a class="tool-card card-romance" href="romance-current-read-template.html">
         <div class="tool-icon">🌸</div>
-        <div class="tool-name">Current Reading Tracker</div>
-        <div class="tool-desc">Track your reading progress with a flower that blooms along a winding path — and bursts with confetti at 100%.</div>
+        <div class="tool-name">Romance</div>
+        <div class="tool-desc">A blooming flower drifts along a winding path — with subgenres like Contemporary, Dark Romance, Regency, and more.</div>
         <span class="tool-tag">Currently reading</span>
         <div class="tool-cta">Open tool</div>
       </a>
-
     </div>
+
+    <!-- Mystery & Thriller -->
+    <div class="genre-group">
+      <span class="genre-group-label">Mystery · Suspense · Thriller</span>
+      <div class="genre-group-line"></div>
+    </div>
+    <div class="tools-grid">
+      <a class="tool-card card-mystery" href="mystery-current-read-template.html">
+        <div class="tool-icon">🔍</div>
+        <div class="tool-name">Mystery / Suspense / Thriller</div>
+        <div class="tool-desc">Navigate a city-grid map with genre-matched cursors — a magnifier, dagger, police car, and more across 11 subgenres.</div>
+        <span class="tool-tag">Currently reading</span>
+        <div class="tool-cta">Open tool</div>
+      </a>
+    </div>
+
+    <!-- Fantasy -->
+    <div class="genre-group">
+      <span class="genre-group-label">Fantasy</span>
+      <div class="genre-group-line"></div>
+    </div>
+    <div class="tools-grid">
+      <a class="tool-card card-fantasy" href="fantasy-current-read-template.html">
+        <div class="tool-icon">🐉</div>
+        <div class="tool-name">Fantasy</div>
+        <div class="tool-desc">Journey across a parchment map with a soaring dragon, fluttering fairy, drifting wraith, and more across 8 subgenres.</div>
+        <span class="tool-tag">Currently reading</span>
+        <div class="tool-cta">Open tool</div>
+      </a>
+    </div>
+
+    <!-- Sci-Fi -->
+    <div class="genre-group">
+      <span class="genre-group-label">Science Fiction</span>
+      <div class="genre-group-line"></div>
+    </div>
+    <div class="tools-grid">
+      <a class="tool-card card-scifi" href="scifi-current-read-template.html">
+        <div class="tool-icon">🚀</div>
+        <div class="tool-name">Science Fiction</div>
+        <div class="tool-desc">Fly through a star-chart grid — a gliding spaceship, stomping mech suit, spinning time machine, and more across 9 subgenres.</div>
+        <span class="tool-tag">Currently reading</span>
+        <div class="tool-cta">Open tool</div>
+      </a>
+    </div>
+
+    <!-- Horror -->
+    <div class="genre-group">
+      <span class="genre-group-label">Horror</span>
+      <div class="genre-group-line"></div>
+    </div>
+    <div class="tools-grid">
+      <a class="tool-card card-horror" href="horror-current-read-template.html">
+        <div class="tool-icon">💀</div>
+        <div class="tool-name">Horror</div>
+        <div class="tool-desc">Creep through a graveyard map — a trembling mirror, drifting wraith, creaking coffin, writhing tentacle eye, and more across 9 subgenres.</div>
+        <span class="tool-tag">Currently reading</span>
+        <div class="tool-cta">Open tool</div>
+      </a>
+    </div>
+
+    <!-- Fiction & Literature -->
+    <div class="genre-group">
+      <span class="genre-group-label">Fiction &amp; Literature</span>
+      <div class="genre-group-line"></div>
+    </div>
+    <div class="tools-grid">
+      <a class="tool-card card-fiction" href="fiction-current-read-template.html">
+        <div class="tool-icon">📖</div>
+        <div class="tool-name">Fiction &amp; Literature</div>
+        <div class="tool-desc">A warm manuscript map with a steaming coffee cup, blooming peony, rolling bicycle, glowing lantern, and more across 10 subgenres.</div>
+        <span class="tool-tag">Currently reading</span>
+        <div class="tool-cta">Open tool</div>
+      </a>
+    </div>
+
   </div>
 
   <div class="divider">· · ·</div>
@@ -218,3 +360,5 @@
 
 </body>
 </html>
+
+
