@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Library Has a Message for You</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=EB+Garamond:ital,wght@0,400;1,400&family=Cinzel:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #2C2416;
+    --bg-mid: #3D3020;
+    --parchment: #F5ECD7;
+    --parchment-light: #FBF5E8;
+    --gold: #C9A84C;
+    --gold-light: #E8C97A;
+    --dusty-rose: #C4927A;
+    --ink: #1A1208;
+    --mist: #8B7355;
+    --cream: #FAF3E4;
+    --reveal-bg: #FDF6E8;
+  }
+
+  body {
+    min-height: 100vh;
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-family: 'EB Garamond', serif;
+    overflow-x: hidden;
+    transition: background 1.2s ease;
+    padding: 20px;
+  }
+
+  body.revealed {
+    background: var(--reveal-bg);
+  }
+
+  /* Language Toggle */
+  .lang-toggle {
+    position: fixed;
+    top: 18px;
+    right: 18px;
+    display: flex;
+    gap: 6px;
+    z-index: 100;
+  }
+
+  .lang-btn {
+    background: transparent;
+    border: 1px solid rgba(201,168,76,0.4);
+    color: var(--gold);
+    font-family: 'EB Garamond', serif;
+    font-size: 13px;
+    padding: 4px 10px;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.3s;
+    letter-spacing: 0.05em;
+  }
+
+  .lang-btn.active {
+    background: rgba(201,168,76,0.15);
+    border-color: var(--gold);
+  }
+
+  body.revealed .lang-btn {
+    color: var(--mist);
+    border-color: rgba(139,115,85,0.4);
+  }
+
+  body.revealed .lang-btn.active {
+    background: rgba(139,115,85,0.12);
+    border-color: var(--mist);
+  }
+
+  /* Ambient particles */
+  .particles {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 0;
+  }
+
+  .particle {
+    position: absolute;
+    width: 2px;
+    height: 2px;
+    border-radius: 50%;
+    background: var(--gold);
+    opacity: 0;
+    animation: float linear infinite;
+  }
+
+  @keyframes float {
+    0% { transform: translateY(100vh) translateX(0); opacity: 0; }
+    10% { opacity: 0.6; }
+    90% { opacity: 0.3; }
+    100% { transform: translateY(-10vh) translateX(30px); opacity: 0; }
+  }
+
+  /* Main container */
+  .container {
+    position: relative;
+    z-index: 1;
+    text-align: center;
+    max-width: 520px;
+    width: 100%;
+    padding: 20px;
+  }
+
+  /* Header */
+  .eyebrow {
+    font-family: 'Cinzel', serif;
+    font-size: 10px;
+    letter-spacing: 0.25em;
+    color: var(--gold);
+    opacity: 0.7;
+    margin-bottom: 16px;
+    transition: color 1.2s ease, opacity 1.2s ease;
+  }
+
+  body.revealed .eyebrow {
+    color: var(--mist);
+    opacity: 0.8;
+  }
+
+  .title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(22px, 5vw, 32px);
+    font-weight: 300;
+    color: var(--parchment);
+    line-height: 1.3;
+    margin-bottom: 8px;
+    font-style: italic;
+    transition: color 1.2s ease;
+  }
+
+  body.revealed .title {
+    color: var(--ink);
+  }
+
+  .subtitle {
+    font-size: 14px;
+    color: var(--mist);
+    margin-bottom: 48px;
+    font-style: italic;
+    line-height: 1.6;
+    transition: color 1.2s ease;
+  }
+
+  body.revealed .subtitle {
+    color: #7A6548;
+  }
+
+  /* Divider */
+  .divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 48px;
+    opacity: 0.4;
+  }
+
+  .divider-line {
+    flex: 1;
+    height: 1px;
+    background: var(--gold);
+    transition: background 1.2s ease;
+  }
+
+  body.revealed .divider-line { background: var(--mist); }
+
+  .divider-diamond {
+    width: 5px;
+    height: 5px;
+    background: var(--gold);
+    transform: rotate(45deg);
+    transition: background 1.2s ease;
+  }
+
+  body.revealed .divider-diamond { background: var(--mist); }
+
+  /* Book animation container */
+  .book-container {
+    perspective: 1000px;
+    margin: 0 auto 40px;
+    width: 160px;
+    height: 200px;
+    position: relative;
+    cursor: pointer;
+    transition: filter 0.3s;
+  }
+
+  .book-container:hover {
+    filter: drop-shadow(0 0 16px rgba(201,168,76,0.35));
+  }
+
+  .book {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    transform-style: preserve-3d;
+    transition: transform 0.3s ease;
+  }
+
+  .book:hover { transform: translateY(-4px); }
+
+  .book-cover {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, #3D2E1A 0%, #2A1F0F 50%, #3D2E1A 100%);
+    border-radius: 3px 8px 8px 3px;
+    border: 1px solid rgba(201,168,76,0.3);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    box-shadow: -4px 4px 20px rgba(0,0,0,0.5), inset -2px 0 8px rgba(0,0,0,0.3);
+    transition: all 1s ease;
+    overflow: hidden;
+  }
+
+  body.revealed .book-cover {
+    background: linear-gradient(135deg, #C4927A 0%, #A87060 50%, #C4927A 100%);
+    border-color: rgba(201,168,76,0.6);
+  }
+
+  .book-cover::before {
+    content: '';
+    position: absolute;
+    left: 10px;
+    top: 0;
+    bottom: 0;
+    width: 6px;
+    background: rgba(0,0,0,0.3);
+    border-radius: 2px 0 0 2px;
+  }
+
+  .book-ornament {
+    font-size: 32px;
+    filter: drop-shadow(0 0 8px rgba(201,168,76,0.5));
+    transition: all 1.2s ease;
+  }
+
+  body.revealed .book-ornament {
+    filter: drop-shadow(0 0 12px rgba(255,220,150,0.8));
+    transform: scale(1.1);
+  }
+
+  .book-title-text {
+    font-family: 'Cinzel', serif;
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    color: var(--gold);
+    text-align: center;
+    padding: 0 20px;
+    line-height: 1.6;
+    transition: color 1.2s ease;
+  }
+
+  body.revealed .book-title-text {
+    color: var(--parchment-light);
+  }
+
+  .book-corner {
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    border-color: rgba(201,168,76,0.3);
+    border-style: solid;
+    transition: border-color 1.2s ease;
+  }
+
+  body.revealed .book-corner { border-color: rgba(255,255,255,0.4); }
+
+  .book-corner.tl { top: 10px; left: 16px; border-width: 1px 0 0 1px; }
+  .book-corner.tr { top: 10px; right: 10px; border-width: 1px 1px 0 0; }
+  .book-corner.bl { bottom: 10px; left: 16px; border-width: 0 0 1px 1px; }
+  .book-corner.br { bottom: 10px; right: 10px; border-width: 0 1px 1px 0; }
+
+  /* Click hint */
+  .click-hint {
+    font-family: 'EB Garamond', serif;
+    font-size: 13px;
+    font-style: italic;
+    color: var(--mist);
+    opacity: 0.6;
+    margin-top: -24px;
+    margin-bottom: 40px;
+    letter-spacing: 0.05em;
+    transition: opacity 1.2s ease;
+  }
+
+  body.revealed .click-hint {
+    opacity: 0.4;
+  }
+
+  /* Fortune reveal area */
+  .fortune-area {
+    display: none;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.8s ease, transform 0.8s ease;
+    margin-top: 32px;
+  }
+
+  .fortune-area.visible {
+    display: block;
+  }
+
+  .fortune-area.animated {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .fortune-card {
+    background: linear-gradient(160deg, #FFFDF5 0%, #FBF3DF 60%, #F7EDD0 100%);
+    border: 1px solid rgba(201,168,76,0.3);
+    border-radius: 4px;
+    padding: 36px 32px;
+    position: relative;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.08), 0 2px 8px rgba(201,168,76,0.1);
+  }
+
+  .fortune-card::before,
+  .fortune-card::after {
+    content: '✦';
+    position: absolute;
+    color: var(--gold);
+    opacity: 0.4;
+    font-size: 10px;
+  }
+
+  .fortune-card::before { top: 14px; left: 18px; }
+  .fortune-card::after { bottom: 14px; right: 18px; }
+
+  .dear-reader {
+    font-family: 'Cinzel', serif;
+    font-size: 10px;
+    letter-spacing: 0.25em;
+    color: var(--dusty-rose);
+    margin-bottom: 16px;
+    opacity: 0.8;
+  }
+
+  .fortune-text {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(17px, 4vw, 22px);
+    font-weight: 300;
+    font-style: italic;
+    color: var(--ink);
+    line-height: 1.7;
+    margin-bottom: 20px;
+  }
+
+  .fortune-ornament {
+    color: var(--gold);
+    opacity: 0.5;
+    font-size: 16px;
+    letter-spacing: 8px;
+  }
+
+  /* Sparkle overlay */
+  .sparkle-overlay {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 50;
+    display: none;
+  }
+
+  .sparkle-overlay.active { display: block; }
+
+  .sparkle {
+    position: absolute;
+    font-size: 16px;
+    animation: sparkle-anim 1.5s ease forwards;
+    opacity: 0;
+  }
+
+  @keyframes sparkle-anim {
+    0% { transform: scale(0) rotate(0deg); opacity: 0; }
+    30% { opacity: 1; transform: scale(1.2) rotate(15deg); }
+    70% { opacity: 0.8; transform: scale(1) rotate(-5deg); }
+    100% { transform: scale(0.5) rotate(20deg) translateY(-30px); opacity: 0; }
+  }
+
+  /* Book opening animation */
+  @keyframes book-pulse {
+    0%, 100% { transform: translateY(0) scale(1); }
+    50% { transform: translateY(-8px) scale(1.03); }
+  }
+
+  .book-container.opening .book {
+    animation: book-pulse 0.6s ease;
+  }
+
+
+
+  /* Footer */
+  .footer {
+    margin-top: 48px;
+    font-family: 'Cinzel', serif;
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    color: var(--mist);
+    opacity: 0.4;
+    transition: color 1.2s ease;
+  }
+
+  body.revealed .footer { opacity: 0.5; }
+</style>
+</head>
+<body>
+
+<!-- Particles -->
+<div class="particles" id="particles"></div>
+
+<!-- Sparkle overlay -->
+<div class="sparkle-overlay" id="sparkleOverlay"></div>
+
+<!-- Language Toggle -->
+<div class="lang-toggle">
+  <button class="lang-btn active" onclick="setLang('en')" id="btn-en">EN</button>
+  <button class="lang-btn" onclick="setLang('id')" id="btn-id">ID</button>
+</div>
+
+<div class="container">
+  <p class="eyebrow" id="eyebrow">HIDDEN LIBRARY</p>
+
+  <h1 class="title" id="main-title">The Library Has<br>a Message for You</h1>
+
+  <p class="subtitle" id="main-subtitle">Every reader carries an unread fortune.<br>Let the library speak.</p>
+
+  <div class="divider">
+    <div class="divider-line"></div>
+    <div class="divider-diamond"></div>
+    <div class="divider-line"></div>
+  </div>
+
+  <!-- Book -->
+  <div class="book-container" id="bookContainer" onclick="revealFortune()">
+    <div class="book" id="book">
+      <div class="book-cover">
+        <div class="book-corner tl"></div>
+        <div class="book-corner tr"></div>
+        <div class="book-corner bl"></div>
+        <div class="book-corner br"></div>
+        <div class="book-ornament">📖</div>
+        <div class="book-title-text" id="book-label">OPEN TO<br>RECEIVE</div>
+      </div>
+    </div>
+  </div>
+
+  <p class="click-hint" id="click-hint">— click the book —</p>
+
+  <!-- Fortune area -->
+  <div class="fortune-area" id="fortuneArea">
+    <div class="fortune-card">
+      <p class="dear-reader" id="dear-reader-text">DEAR READER</p>
+      <p class="fortune-text" id="fortuneText"></p>
+      <div class="fortune-ornament">✦ ✦ ✦</div>
+    </div>
+  </div>
+
+  <p class="footer">THE HIDDEN LIBRARY · FREE BOOKISH TOOLS</p>
+</div>
+
+<script>
+  // --- FORTUNES ---
+  const fortunes = [
+    "It has been waiting patiently. Perhaps today is finally its day.",
+    "The margins are where the real conversation happens — between the author and the reader who truly listened.",
+    "You do not race through a garden. You linger. So do you with every page.",
+    "A sharp opinion is just a love letter written in honest ink.",
+    "A perfect spine means an unread book. Yours tell a different story.",
+    "The story you avoid is usually the one you need most.",
+    "The most interesting readers are found in the sections nobody else visits.",
+    "A shelf full of unread books is not guilt — it is hope, stacked neatly.",
+    "A book that makes you cry has done something most people spend a lifetime trying to do.",
+    "You return not because you forgot, but because some stories deserve to be felt twice.",
+    "The best stories reveal themselves after midnight, when the world finally stops interrupting.",
+    "You mark the pages that mark you.",
+    "Some stories are not meant to be comfortable. They are meant to be unforgettable.",
+    "You cannot force the tide. Read when the story finds you, not when the clock demands it.",
+    "Not every book needs to change you. Some are simply there to warm the room.",
+    "The past is not gone. It is waiting in the pages of those who lived it.",
+    "You have not lost your reading habit. It is simply waiting for the right book to wake it up.",
+    "A reader who reads slowly is not behind. They are simply refusing to leave too soon.",
+    "Some characters were never meant to stay on the page. They follow you home.",
+    "Grieving a fictional character is not dramatic. It means the author did their job perfectly.",
+    "A bookstore is the only place where getting lost is always the right decision.",
+    "The library does not judge what you check out. Neither should you.",
+    "Buying the book was not an impulse. It was intuition.",
+    "The book found you before you found it. Trust that."
+  ];
+
+  // --- TRANSLATIONS ---
+  const translations = {
+    en: {
+      eyebrow: "HIDDEN LIBRARY",
+      title: "The Library Has<br>a Message for You",
+      subtitle: "Every reader carries an unread fortune.<br>Let the library speak.",
+      bookLabel: "OPEN TO<br>RECEIVE",
+      clickHint: "— click the book —",
+      dearReader: "DEAR READER",
+      footer: "THE HIDDEN LIBRARY · FREE BOOKISH TOOLS"
+    },
+    id: {
+      eyebrow: "HIDDEN LIBRARY",
+      title: "Perpustakaan Punya<br>Pesan Untukmu",
+      subtitle: "Setiap pembaca menyimpan ramalan yang belum terbaca.<br>Biarkan perpustakaan berbicara.",
+      bookLabel: "BUKA UNTUK<br>MENERIMA",
+      clickHint: "— klik bukunya —",
+      dearReader: "DEAR READER",
+      footer: "THE HIDDEN LIBRARY · TOOLS BOOKISH GRATIS"
+    }
+  };
+
+  let currentLang = 'en';
+  let lastFortune = -1;
+
+  function setLang(lang) {
+    currentLang = lang;
+    document.getElementById('btn-en').classList.toggle('active', lang === 'en');
+    document.getElementById('btn-id').classList.toggle('active', lang === 'id');
+    applyTranslations();
+  }
+
+  function applyTranslations() {
+    const t = translations[currentLang];
+    document.getElementById('eyebrow').textContent = t.eyebrow;
+    document.getElementById('main-title').innerHTML = t.title;
+    document.getElementById('main-subtitle').innerHTML = t.subtitle;
+    document.getElementById('book-label').innerHTML = t.bookLabel;
+    document.getElementById('click-hint').textContent = t.clickHint;
+    document.getElementById('dear-reader-text').textContent = t.dearReader;
+    document.querySelector('.footer').textContent = t.footer;
+  }
+
+  function getRandomFortune() {
+    let idx;
+    do { idx = Math.floor(Math.random() * fortunes.length); }
+    while (idx === lastFortune && fortunes.length > 1);
+    lastFortune = idx;
+    return fortunes[idx];
+  }
+
+  function spawnSparkles() {
+    const overlay = document.getElementById('sparkleOverlay');
+    overlay.classList.add('active');
+    overlay.innerHTML = '';
+    const symbols = ['✦', '✧', '⋆', '·', '✨', '◇'];
+    const count = 18;
+    for (let i = 0; i < count; i++) {
+      const s = document.createElement('span');
+      s.className = 'sparkle';
+      s.textContent = symbols[Math.floor(Math.random() * symbols.length)];
+      s.style.left = (10 + Math.random() * 80) + '%';
+      s.style.top = (10 + Math.random() * 80) + '%';
+      s.style.animationDelay = (Math.random() * 0.8) + 's';
+      s.style.color = Math.random() > 0.5 ? '#C9A84C' : '#C4927A';
+      overlay.appendChild(s);
+    }
+    setTimeout(() => { overlay.classList.remove('active'); overlay.innerHTML = ''; }, 2200);
+  }
+
+  function revealFortune() {
+    const bookContainer = document.getElementById('bookContainer');
+    const fortuneArea = document.getElementById('fortuneArea');
+    const fortuneText = document.getElementById('fortuneText');
+    const ctaBtn = document.getElementById('ctaBtn');
+
+    // Book opening animation
+    bookContainer.classList.add('opening');
+    setTimeout(() => bookContainer.classList.remove('opening'), 700);
+
+    // Sparkles
+    setTimeout(spawnSparkles, 300);
+
+    // Reveal body transition
+    setTimeout(() => {
+      document.body.classList.add('revealed');
+    }, 400);
+
+    // Set fortune text
+    fortuneText.textContent = getRandomFortune();
+
+    // Show fortune area
+    fortuneArea.classList.add('visible');
+    setTimeout(() => {
+      fortuneArea.classList.add('animated');
+    }, 600);
+  }
+
+  // Generate ambient particles
+  function createParticles() {
+    const container = document.getElementById('particles');
+    for (let i = 0; i < 20; i++) {
+      const p = document.createElement('div');
+      p.className = 'particle';
+      p.style.left = Math.random() * 100 + '%';
+      p.style.animationDuration = (8 + Math.random() * 12) + 's';
+      p.style.animationDelay = (Math.random() * 10) + 's';
+      p.style.width = p.style.height = (1 + Math.random() * 2) + 'px';
+      container.appendChild(p);
+    }
+  }
+
+  createParticles();
+  applyTranslations();
+</script>
+</body>
+</html>
